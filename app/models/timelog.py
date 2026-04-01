@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Text, ForeignKey, Numeric
+from sqlalchemy import Column, Integer, String, Date, Text, ForeignKey, Numeric, Boolean
 from sqlalchemy.orm import relationship
 from app.core.database import Base, AuditMixin
 
@@ -24,6 +24,7 @@ class TimeLog(AuditMixin, Base):
     log_title = Column(String(255), nullable=True)
     billing_type = Column(String(50), default="Billable")
     approval_status = Column(String(50), default="Pending")
+    general_log = Column(Boolean, default=False)
 
     # Relationships
     user = relationship("User", foreign_keys=[user_email])

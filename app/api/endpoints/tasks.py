@@ -7,7 +7,7 @@ from app.core.security import (
     allow_authenticated, allow_team_lead_plus, allow_pm,
     is_employee_only, is_team_lead_plus
 )
-from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
+from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse, TaskListResponse
 from app.services import task_service
 
 router = APIRouter(dependencies=[Depends(allow_authenticated)])
@@ -38,7 +38,7 @@ def search_tasks(
 ):
     return task_service.search_tasks(db, query=q, project_id=project_id, limit=limit)
 
-@router.get("/", response_model=List[TaskResponse])
+@router.get("/", response_model=TaskListResponse)
 def read_tasks(
     skip: int = 0, 
     limit: int = 100, 
@@ -50,13 +50,12 @@ def read_tasks(
     current_user = Depends(allow_authenticated)
 ):
     """
-    Retrieve tasks. Employees only see tasks assigned to them.
+    Retrieve tasks with total count. Employees only see tasks assigned to them.
     """
-    # Force Employee data isolation: override assignee_email filter to self
     if is_employee_only(current_user):
         assignee_email = [current_user.email]
 
-    tasks = task_service.get_tasks(
+    return task_service.get_tasks(
         db, 
         skip=skip, 
         limit=limit, 
@@ -65,7 +64,6 @@ def read_tasks(
         priority_ids=priority_id,
         assignee_emails=assignee_email
     )
-    return tasks
 
 @router.get("/{task_id}", response_model=TaskResponse)
 def read_task(task_id: int, db: Session = Depends(get_db), current_user = Depends(allow_authenticated)):

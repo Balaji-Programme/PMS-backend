@@ -37,10 +37,18 @@ class Project(AuditMixin, Base):
     previous_status = Column(Integer, ForeignKey("statuses.id", ondelete="SET NULL"), nullable=True)
     priority_id = Column(Integer, ForeignKey("priorities.id"), nullable=True)
 
-
-    start_date = Column(Date, nullable=True)
-    end_date = Column(Date, nullable=True)
+    # ── Planned / Expected Schedule (required in business logic) ──
+    start_date = Column(Date, nullable=True)        # expected_start_date alias
+    end_date = Column(Date, nullable=True)          # expected_end_date alias
     estimated_hours = Column(Numeric(10, 2), nullable=True)
+
+    # ── Actual Tracking (populated as work progresses) ──────────
+    actual_start_date = Column(Date, nullable=True)
+    actual_end_date = Column(Date, nullable=True)
+    actual_hours = Column(Numeric(10, 2), nullable=True, default=0)
+
+    # ── Soft Delete / Archiving ──────────────────────────────────
+    is_archived = Column(Boolean, default=False, nullable=False)
     is_processed = Column(Boolean, default=False)
 
     # Relationships — joinedload to prevent N+1
@@ -56,5 +64,3 @@ class Project(AuditMixin, Base):
     documents = relationship("Document", back_populates="project", cascade="all, delete-orphan")
     milestones = relationship("Milestone", back_populates="project", cascade="all, delete-orphan")
     task_lists = relationship("TaskList", back_populates="project", cascade="all, delete-orphan")
-
-

@@ -28,23 +28,29 @@ def search_projects(
 
 @router.get("/", response_model=List[ProjectResponse])
 def read_projects(
-    skip: int = 0, 
-    limit: int = 100, 
+    skip: int = 0,
+    limit: int = 100,
     status_id: Optional[List[int]] = Query(None),
     priority_id: Optional[List[int]] = Query(None),
     manager_email: Optional[List[str]] = Query(None),
+    is_archived: bool = Query(False, description="Set to true to list archived projects only"),
     db: Session = Depends(get_db),
     current_user = Depends(allow_authenticated)
 ):
-    """Employees only see projects they are assigned to."""
+    """
+    List projects. Excludes archived projects by default.
+    Pass `?is_archived=true` to retrieve archived projects.
+    Employees only see projects they are assigned to.
+    """
     projects = project_service.get_projects(
-        db, 
-        skip=skip, 
-        limit=limit, 
-        status_ids=status_id, 
-        priority_ids=priority_id, 
+        db,
+        skip=skip,
+        limit=limit,
+        status_ids=status_id,
+        priority_ids=priority_id,
         manager_emails=manager_email,
-        current_user=current_user if is_employee_only(current_user) else None
+        is_archived=is_archived,
+        current_user=current_user if is_employee_only(current_user) else None,
     )
     return projects
 
@@ -70,11 +76,48 @@ def update_project(project_id: int, project: ProjectUpdate, db: Session = Depend
 
 @router.delete("/{project_id}", dependencies=[Depends(allow_pm)])
 def delete_project(project_id: int, db: Session = Depends(get_db), current_user = Depends(allow_pm)):
-    """Only Admin and Project Manager can delete projects."""
+    """Only Admin and Project Manager can hard-delete projects."""
     success = project_service.delete_project(db, project_id=project_id, actor_id=current_user.o365_id)
     if not success:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"message": "Project deleted successfully"}
+
+
+@router.patch("/{project_id}/archive", response_model=ProjectResponse, dependencies=[Depends(allow_pm)])
+def archive_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(allow_pm)
+):
+    """
+    Soft-delete: marks the project as archived (is_archived=True).
+    Only Admin and Project Manager can archive projects.
+    """
+    from app.models.project import Project
+    db_project = db.query(Project).filter(Project.id == project_id).first()
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    db_project.is_archived = True
+    db.commit()
+    db.refresh(db_project)
+    return project_service.get_project(db, db_project.id)
+
+
+@router.patch("/{project_id}/unarchive", response_model=ProjectResponse, dependencies=[Depends(allow_pm)])
+def unarchive_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(allow_pm)
+):
+    """Restore a soft-deleted project — sets is_archived=False."""
+    from app.models.project import Project
+    db_project = db.query(Project).filter(Project.id == project_id).first()
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    db_project.is_archived = False
+    db.commit()
+    db.refresh(db_project)
+    return project_service.get_project(db, db_project.id)
 
 
 # ─── Assignment Endpoints ─────────────────────────────────────
@@ -101,6 +144,33 @@ def assign_user_to_project(
     if not success:
         raise HTTPException(status_code=404, detail="Project or User not found")
     return {"message": "User assigned to project successfully"}
+
+@router.post("/{project_id}/users/bulk", dependencies=[Depends(allow_team_lead_plus)])
+def bulk_assign_users_to_project(
+    project_id: int,
+    user_ids: List[int],
+    db: Session = Depends(get_db),
+    current_user = Depends(allow_team_lead_plus)
+):
+    """Add multiple system users to a project at once."""
+    from app.models.user import User
+    from app.models.project import Project
+    
+    db_project = db.query(Project).filter(Project.id == project_id).first()
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    db_users = db.query(User).filter(User.id.in_(user_ids)).all()
+    if len(db_users) != len(user_ids):
+        raise HTTPException(status_code=400, detail="Some users were not found in the system")
+        
+    existing_user_ids = {u.id for u in db_project.users}
+    for user in db_users:
+        if user.id not in existing_user_ids:
+            db_project.users.append(user)
+            
+    db.commit()
+    return {"message": f"{len(db_users)} users assigned to project successfully"}
 
 @router.post("/{project_id}/users/{user_email}", dependencies=[Depends(allow_team_lead_plus)])
 def assign_user_to_project_legacy(project_id: int, user_email: str, db: Session = Depends(get_db)):

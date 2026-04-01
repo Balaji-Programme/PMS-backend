@@ -2,6 +2,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 from app.models.issue import Issue
 from app.models.document import Document
+from app.models.user import User
 from app.schemas.issue import IssueCreate, IssueUpdate
 from app.utils.ids import generate_public_id
 from app.utils.audit_utils import write_audit, capture_audit_details
@@ -11,6 +12,8 @@ def get_issue(db: Session, issue_id: int):
         joinedload(Issue.project),
         joinedload(Issue.reporter),
         joinedload(Issue.assignee),
+        joinedload(Issue.assignees),
+        joinedload(Issue.followers),
         joinedload(Issue.status),
         joinedload(Issue.priority),
         joinedload(Issue.documents)
@@ -29,6 +32,8 @@ def get_issues(
         joinedload(Issue.project),
         joinedload(Issue.reporter),
         joinedload(Issue.assignee),
+        joinedload(Issue.assignees),
+        joinedload(Issue.followers),
         joinedload(Issue.status),
         joinedload(Issue.priority),
         joinedload(Issue.documents)
@@ -42,7 +47,9 @@ def get_issues(
     if assignee_emails:
         query = query.filter(Issue.assignee_email.in_(assignee_emails))
         
-    return query.offset(skip).limit(limit).all()
+    total = query.count()
+    items = query.offset(skip).limit(limit).all()
+    return {"total": total, "items": items}
 
 def create_issue(db: Session, issue: IssueCreate, actor_id: Optional[str] = None):
     public_id = generate_public_id("ISS-")
@@ -55,10 +62,22 @@ def create_issue(db: Session, issue: IssueCreate, actor_id: Optional[str] = None
         assignee_email=issue.assignee_email,
         status_id=issue.status_id,
         priority_id=issue.priority_id,
+        classification=issue.classification,
+        module=issue.module,
+        tags=issue.tags,
         start_date=issue.start_date,
         end_date=issue.end_date,
+        due_date=issue.due_date,
         estimated_hours=issue.estimated_hours
     )
+    
+    if issue.follower_ids:
+        followers = db.query(User).filter(User.id.in_(issue.follower_ids)).all()
+        db_issue.followers.extend(followers)
+    
+    if hasattr(issue, 'assignee_ids') and issue.assignee_ids:
+        assignees = db.query(User).filter(User.id.in_(issue.assignee_ids)).all()
+        db_issue.assignees.extend(assignees)
     
     if hasattr(issue, 'document_ids') and issue.document_ids:
         docs = db.query(Document).filter(Document.id.in_(issue.document_ids)).all()
@@ -81,11 +100,19 @@ def update_issue(db: Session, issue_id: int, issue_update: IssueUpdate, actor_id
     if not db_issue:
         return None
     
-    update_data = issue_update.model_dump(exclude_unset=True, exclude={'document_ids'})
+    update_data = issue_update.model_dump(exclude_unset=True, exclude={'document_ids', 'follower_ids', 'assignee_ids'})
     changes = capture_audit_details(db_issue, update_data)
 
     for key, value in update_data.items():
         setattr(db_issue, key, value)
+        
+    if hasattr(issue_update, 'follower_ids') and issue_update.follower_ids is not None:
+        followers = db.query(User).filter(User.id.in_(issue_update.follower_ids)).all()
+        db_issue.followers = followers
+        
+    if hasattr(issue_update, 'assignee_ids') and issue_update.assignee_ids is not None:
+        assignees = db.query(User).filter(User.id.in_(issue_update.assignee_ids)).all()
+        db_issue.assignees = assignees
         
     if hasattr(issue_update, 'document_ids') and issue_update.document_ids is not None:
         docs = db.query(Document).filter(Document.id.in_(issue_update.document_ids)).all()

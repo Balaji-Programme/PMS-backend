@@ -13,6 +13,7 @@ class TimeLogBase(BaseModel):
     log_title: Optional[str] = None
     billing_type: Optional[str] = "Billable"
     approval_status: Optional[str] = "Pending"
+    general_log: Optional[bool] = False
 
 class TimeLogCreate(TimeLogBase):
     user_email: Optional[str] = None
@@ -28,6 +29,7 @@ class TimeLogUpdate(BaseModel):
     log_title: Optional[str] = None
     billing_type: Optional[str] = None
     approval_status: Optional[str] = None
+    general_log: Optional[bool] = None
     user_email: Optional[str] = None
     project_id: Optional[int] = None
     task_id: Optional[int] = None

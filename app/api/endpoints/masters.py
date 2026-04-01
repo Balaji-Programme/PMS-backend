@@ -90,6 +90,20 @@ def remove_user_from_role(role_id: int, user_email: str, db: Session = Depends(g
     db.commit()
     return {"message": "User removed from role successfully"}
 
+@router.post("/roles/{role_id}/users/bulk")
+def bulk_assign_users_to_role(role_id: int, user_ids: List[int], db: Session = Depends(get_db)):
+    """Assign multiple users to a role."""
+    from app.models.user import User
+    from app.models.roles import Role
+    db_role = db.query(Role).filter(Role.id == role_id).first()
+    if not db_role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    
+    # Update bulk
+    db.query(User).filter(User.id.in_(user_ids)).update({"role_id": role_id}, synchronize_session=False)
+    db.commit()
+    return {"message": f"{len(user_ids)} users assigned to role successfully"}
+
 @router.get("/skills", response_model=List[SkillResponse])
 def read_skills(db: Session = Depends(get_db)):
     return master_service.get_skills(db)

@@ -54,7 +54,8 @@ def create_timelog(db: Session, timelog: TimeLogCreate, actor_id: Optional[str] 
         description=timelog.description,
         log_title=timelog.log_title,
         billing_type=timelog.billing_type,
-        approval_status=timelog.approval_status
+        approval_status=timelog.approval_status,
+        general_log=timelog.general_log
     )
     db.add(db_timelog)
     db.flush()

@@ -62,6 +62,10 @@ def create_project(db: Session, project: ProjectCreate, actor_id: str):
         end_date=project.end_date,
         estimated_hours=project.estimated_hours
     )
+    if project.user_ids:
+        users = db.query(User).filter(User.id.in_(project.user_ids)).all()
+        db_project.users = users
+
     db.add(db_project)
     db.flush() # Get ID for audit log
 
@@ -98,6 +102,10 @@ def update_project(db: Session, project_id: int, project_update: ProjectUpdate, 
 
     for key, value in update_data.items():
         setattr(db_project, key, value)
+    
+    if hasattr(project_update, 'user_ids') and project_update.user_ids is not None:
+        users = db.query(User).filter(User.id.in_(project_update.user_ids)).all()
+        db_project.users = users
         
     if actor_id:
         write_audit(db, actor_id, "UPDATE", "projects", project_id, project_id, changes)

@@ -9,7 +9,8 @@ from datetime import date
 def get_milestone(db: Session, milestone_id: int):
     return db.query(Milestone).options(
         joinedload(Milestone.project),
-        joinedload(Milestone.status)
+        joinedload(Milestone.status),
+        joinedload(Milestone.owner)
     ).filter(Milestone.id == milestone_id).first()
 
 def get_milestones(
@@ -21,7 +22,8 @@ def get_milestones(
 ):
     query = db.query(Milestone).options(
         joinedload(Milestone.project),
-        joinedload(Milestone.status)
+        joinedload(Milestone.status),
+        joinedload(Milestone.owner)
     )
     if project_id:
         query = query.filter(Milestone.project_id == project_id)
@@ -39,7 +41,10 @@ def create_milestone(db: Session, milestone: MilestoneCreate, actor_id: Optional
         start_date=milestone.start_date,
         end_date=milestone.end_date,
         project_id=milestone.project_id,
-        status_id=milestone.status_id
+        status_id=milestone.status_id,
+        owner_email=milestone.owner_email,
+        flags=milestone.flags,
+        tags=milestone.tags
     )
     db.add(db_milestone)
     db.flush()

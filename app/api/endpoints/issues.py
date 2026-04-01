@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.security import allow_authenticated, allow_team_lead_plus, is_employee_only
-from app.schemas.issue import IssueCreate, IssueUpdate, IssueResponse
+from app.schemas.issue import IssueCreate, IssueUpdate, IssueResponse, IssueListResponse
 from app.services import issue_service
 
 router = APIRouter(dependencies=[Depends(allow_authenticated)])
@@ -28,7 +28,7 @@ def search_issues(
 ):
     return issue_service.search_issues(db, query=q, project_id=project_id, limit=limit)
 
-@router.get("/", response_model=List[IssueResponse])
+@router.get("/", response_model=IssueListResponse)
 def read_issues(
     skip: int = 0, 
     limit: int = 100, 
