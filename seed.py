@@ -4,15 +4,23 @@ from app.models.masters import Department, UserStatus, Skill, Status, Priority
 from app.models.roles import Role
 
 # --- Required status values for Tasks, Issues, Projects ---
+# Task statuses: Open, In Progress, In Review, To Be Tested, Completed, On Hold, Closed
+# Issue statuses: Open, In Progress, In Review, To Be Tested, Re-Opened, Closed
+# Project statuses: Planning, In Progress, Completed, On Hold, Closed, Cancelled
 REQUIRED_STATUSES = [
+    # Shared / Project
     "Planning",
+    "Cancelled",
+    # Tasks & Issues shared
     "Open",
     "In Progress",
     "In Review",
     "To Be Tested",
     "Completed",
     "On Hold",
+    # Issues-only
     "Re-Opened",
+    # Shared close state
     "Closed",
 ]
 
