@@ -15,7 +15,6 @@ class TeamBase(BaseModel):
 
 class TeamCreate(TeamBase):
     lead_email: Optional[str] = None
-    dept_id: Optional[int] = None
     member_emails: Optional[List[str]] = []
 
 class TeamUpdate(BaseModel):
@@ -28,16 +27,13 @@ class TeamUpdate(BaseModel):
     primary_communication_channel: Optional[str] = None
     channel_id: Optional[str] = None
     lead_email: Optional[str] = None
-    dept_id: Optional[int] = None
     member_emails: Optional[List[str]] = None
 
 class TeamResponse(TeamBase):
     id: int
     public_id: str
     lead_email: Optional[str] = None
-    dept_id: Optional[int] = None
     
-    department: Optional[MasterResponse] = None
     lead: Optional[UserBase] = None
     members_count: int = 0
     

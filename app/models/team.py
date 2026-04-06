@@ -17,10 +17,8 @@ class Team(AuditMixin, Base):
     channel_id = Column(String(100), nullable=True)
     
     lead_email = Column(String(255), ForeignKey("users.email", ondelete="SET NULL"), nullable=True)
-    dept_id = Column(Integer, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
     
     lead = relationship("User", back_populates="managed_teams", foreign_keys=[lead_email])
-    department = relationship("Department", lazy="joined")
     
     members = relationship("User", secondary=user_team_link, back_populates="teams")
 

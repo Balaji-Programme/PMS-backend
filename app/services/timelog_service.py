@@ -17,28 +17,39 @@ def get_timelog(db: Session, timelog_id: int):
 def get_timelogs(
     db: Session, 
     skip: int = 0, 
-    limit: int = 100, 
-    project_id: Optional[int] = None,
-    user_emails: Optional[List[str]] = None
+    limit: int = 100,
+    project_id: int = None,
+    task_id: int = None,
+    issue_id: int = None,
+    user_emails: List[str] = None,
+    current_user=None
 ):
-    query = db.query(TimeLog)
-    if project_id is not None:
+    from sqlalchemy.orm import selectinload
+    from sqlalchemy import or_
+    from app.models.task import Task
+
+    query = db.query(TimeLog).options(
+        selectinload(TimeLog.user),
+        selectinload(TimeLog.project),
+        selectinload(TimeLog.task).selectinload(Task.project),
+        selectinload(TimeLog.issue)
+    )
+
+    if project_id:
         query = query.outerjoin(TimeLog.task).filter(
             or_(
                 TimeLog.project_id == project_id,
                 Task.project_id == project_id
             )
-        ).options(contains_eager(TimeLog.task))
-    else:
-        query = query.options(joinedload(TimeLog.task))
-        
-    query = query.options(
-        joinedload(TimeLog.user),
-        joinedload(TimeLog.project),
-        joinedload(TimeLog.issue)
-    )
+        )
+    if task_id:
+        query = query.filter(TimeLog.task_id == task_id)
+    if issue_id:
+        query = query.filter(TimeLog.issue_id == issue_id)
     if user_emails:
         query = query.filter(TimeLog.user_email.in_(user_emails))
+    if current_user is not None:
+        query = query.filter(TimeLog.user_email == current_user.email)
         
     return query.offset(skip).limit(limit).all()
 

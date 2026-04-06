@@ -29,7 +29,6 @@ def read_milestones(
     project_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
-    status_id: List[int] = Query(None),
     db: Session = Depends(get_db),
 ):
     return milestone_service.get_milestones(
@@ -37,7 +36,6 @@ def read_milestones(
         skip=skip,
         limit=limit,
         project_id=project_id,
-        status_ids=status_id,
     )
 
 @router.get("/{milestone_id}", response_model=MilestoneResponse)

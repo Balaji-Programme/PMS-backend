@@ -60,15 +60,16 @@ class SearchService:
 
         return search_results
 
-    def search_work_items(self, db: Session, query: str, project_id: int = None, limit: int = 20):
-        if not query:
-            return []
-        
+    def search_work_items(self, db: Session, query: str = "", project_id: int = None, limit: int = 20):
         search_results = []
-        q = f"%{query}%"
+        
+        task_filters = []
+        issue_filters = []
 
-        task_filters = [or_(Task.title.ilike(q), Task.public_id.ilike(q))]
-        issue_filters = [or_(Issue.title.ilike(q), Issue.public_id.ilike(q))]
+        if query:
+            q = f"%{query}%"
+            task_filters.append(or_(Task.title.ilike(q), Task.public_id.ilike(q)))
+            issue_filters.append(or_(Issue.title.ilike(q), Issue.public_id.ilike(q)))
 
         if project_id:
             task_filters.append(Task.project_id == project_id)

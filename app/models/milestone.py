@@ -11,7 +11,6 @@ class Milestone(AuditMixin, Base):
     description = Column(Text, nullable=True)
     
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
-    status_id = Column(Integer, ForeignKey("statuses.id"), nullable=True)
     owner_email = Column(String(255), ForeignKey("users.email"), nullable=True)
     flags = Column(String(50), nullable=True)
     tags = Column(String(500), nullable=True)
@@ -22,5 +21,4 @@ class Milestone(AuditMixin, Base):
     is_processed = Column(Boolean, default=False)
 
     project = relationship("Project", back_populates="milestones")
-    status = relationship("Status")
     owner = relationship("User", foreign_keys=[owner_email])

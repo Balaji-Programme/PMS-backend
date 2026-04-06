@@ -7,23 +7,18 @@ from app.utils.ids import generate_public_id
 from app.utils.audit_utils import write_audit, capture_audit_details
 
 def get_team(db: Session, team_id: int):
-    return db.query(Team).options(
-        joinedload(Team.department)
-    ).filter(Team.id == team_id).first()
+    return db.query(Team).filter(Team.id == team_id).first()
 
 def get_team_with_members(db: Session, team_id: int):
     return db.query(Team).options(
-        joinedload(Team.department),
         joinedload(Team.members)
     ).filter(Team.id == team_id).first()
 
 def get_teams(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Team).options(
-        joinedload(Team.department)
-    ).offset(skip).limit(limit).all()
+    return db.query(Team).offset(skip).limit(limit).all()
 
 def search_teams(db: Session, query: str = "", limit: int = 15):
-    q = db.query(Team).options(joinedload(Team.department))
+    q = db.query(Team)
     if query:
         q = q.filter(Team.name.ilike(f"%{query}%"))
     return q.limit(limit).all()
@@ -42,7 +37,6 @@ def create_team(db: Session, team: TeamCreate, actor_id: Optional[str] = None):
         primary_communication_channel=team.primary_communication_channel,
         channel_id=team.channel_id,
         lead_email=team.lead_email,
-        dept_id=team.dept_id
     )
     
     if team.member_emails:

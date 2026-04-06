@@ -55,13 +55,11 @@ class User(AuditMixin, Base):
     is_external = Column(Boolean, default=False)  # True for Customers
 
     role_id = Column(Integer, ForeignKey("roles.id", ondelete="SET NULL"), nullable=True)
-    dept_id = Column(Integer, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
     status_id = Column(Integer, ForeignKey("user_statuses.id", ondelete="SET NULL"), nullable=True)
     
     manager_email = Column(String(255), ForeignKey("users.email", ondelete="SET NULL"), nullable=True)
 
     role = relationship("Role", lazy="joined")
-    department = relationship("Department", lazy="joined")
     status = relationship("UserStatus", lazy="joined")
     manager = relationship("User", remote_side=[email], lazy="select")
 

@@ -1,4 +1,4 @@
-from app.models.masters import Department, UserStatus, Skill, Status, Priority
+from app.models.masters import UserStatus, Skill, Status, Priority
 from app.models.roles import Role
 from app.models.user import User, user_team_link
 from app.models.team import Team

@@ -11,7 +11,6 @@ from app.utils.audit_utils import write_audit, capture_audit_details
 def get_user(db: Session, user_id: int):
     return db.query(User).options(
         joinedload(User.role),
-        joinedload(User.department),
         joinedload(User.status),
         joinedload(User.skills)
     ).filter(User.id == user_id).first()
@@ -28,11 +27,9 @@ def get_users(
     limit: int = 100,
     search: Optional[str] = None,
     role_ids: Optional[List[int]] = None,
-    dept_ids: Optional[List[int]] = None
 ):
     query = db.query(User).options(
         joinedload(User.role),
-        joinedload(User.department),
         joinedload(User.status),
         joinedload(User.skills)
     )
@@ -52,8 +49,6 @@ def get_users(
         
     if role_ids:
         query = query.filter(User.role_id.in_(role_ids))
-    if dept_ids:
-        query = query.filter(User.dept_id.in_(dept_ids))
         
     total = query.count()
     data = query.offset(skip).limit(limit).all()
@@ -75,7 +70,6 @@ def create_user(db: Session, user: UserCreate, actor_id: Optional[str] = None):
         job_title=user.job_title,
         join_date=user.join_date,
         role_id=user.role_id,
-        dept_id=user.dept_id,
         status_id=user.status_id,
         manager_email=user.manager_email,
         display_name=user.display_name,
@@ -147,7 +141,6 @@ def search_users(db: Session, query: str, limit: int = 20):
     from sqlalchemy import or_
     return db.query(User).options(
         joinedload(User.role),
-        joinedload(User.department),
         joinedload(User.status)
     ).filter(
         or_(

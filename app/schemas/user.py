@@ -35,7 +35,6 @@ class UserCreate(UserBase):
     job_title: Optional[str] = None
     join_date: Optional[date] = None
     role_id: Optional[int] = None
-    dept_id: Optional[int] = None
     status_id: Optional[int] = None
     skill_ids: Optional[List[int]] = []
     o365_id: Optional[str] = None
@@ -49,7 +48,6 @@ class UserUpdate(BaseModel):
     job_title: Optional[str] = None
     join_date: Optional[date] = None
     role_id: Optional[int] = None
-    dept_id: Optional[int] = None
     status_id: Optional[int] = None
     skill_ids: Optional[List[int]] = None
     o365_id: Optional[str] = None
@@ -71,7 +69,6 @@ class UserResponse(UserBase):
     job_title: Optional[str] = None
     join_date: Optional[date] = None
     role_id: Optional[int] = None
-    dept_id: Optional[int] = None
     status_id: Optional[int] = None
     manager_email: Optional[str] = None
     o365_id: Optional[str] = None
@@ -83,7 +80,6 @@ class UserResponse(UserBase):
     timezone: Optional[str] = None
 
     role: Optional[RoleResponse] = None
-    department: Optional[MasterResponse] = None
     status: Optional[MasterResponse] = None
     manager: Optional[UserBase] = None
     skills: List[SkillResponse] = []

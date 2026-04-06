@@ -76,9 +76,9 @@ def export_csv_report(report_type: str = "projects", db: Session = Depends(get_d
     writer = csv.writer(output)
 
     if report_type == "projects":
-        writer.writerow(["ID", "Name", "Client", "Start Date", "End Date", "Budget"])
+        writer.writerow(["ID", "Name", "Client", "Start Date", "End Date", "Estimated Hours"])
         for p in db.query(Project).all():
-            writer.writerow([p.public_id, p.name, p.client or "", str(p.start_date or ""), str(p.end_date or ""), p.budget or 0])
+            writer.writerow([p.public_id, p.name, p.client or "", str(p.start_date or ""), str(p.end_date or ""), p.estimated_hours or 0])
     elif report_type == "tasks":
         writer.writerow(["ID", "Title", "Project ID", "Start Date", "End Date", "Estimated Hours"])
         for t in db.query(Task).all():

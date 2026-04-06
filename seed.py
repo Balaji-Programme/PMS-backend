@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, engine, Base
-from app.models.masters import Department, UserStatus, Skill, Status, Priority
+from app.models.masters import UserStatus, Skill, Status, Priority
 from app.models.roles import Role
 
 REQUIRED_STATUSES = [
@@ -18,10 +18,6 @@ REQUIRED_STATUSES = [
 
 def seed_data(db: Session):
     Base.metadata.create_all(bind=engine)
-
-    if db.query(Department).count() == 0:
-        departments = ["Engineering", "Marketing", "O365", "Sales", "Business Analyst"]
-        db.add_all([Department(name=name) for name in departments])
 
     if db.query(UserStatus).count() == 0:
         user_statuses = ["Active", "Inactive", "Pending", "Onboarding", "On Leave"]

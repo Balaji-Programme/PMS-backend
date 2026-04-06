@@ -1,10 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
-from app.models.masters import Department, UserStatus, Skill, Status, Priority
+from app.models.masters import UserStatus, Skill, Status, Priority
 from app.models.roles import Role
 from app.models.user import User
-
-def get_departments(db: Session):
-    return db.query(Department).all()
 
 def get_user_statuses(db: Session):
     return db.query(UserStatus).all()
@@ -69,12 +66,6 @@ def delete_role(db: Session, role_id: int):
 
 def get_skills(db: Session):
     return db.query(Skill).all()
-
-def search_departments(db: Session, query: str, limit: int = 20):
-    if not query:
-        return []
-    q = f"%{query}%"
-    return db.query(Department).filter(Department.name.ilike(q)).limit(limit).all()
 
 def search_statuses(db: Session, query: str, limit: int = 20):
     if not query:

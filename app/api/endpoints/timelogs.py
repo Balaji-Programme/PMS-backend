@@ -47,24 +47,29 @@ def create_timelogs_bulk(
 
 @router.get("/", response_model=List[TimeLogResponse])
 def read_timelogs(
+    project_id: Optional[int] = None,
+    task_id: Optional[int] = None,
+    issue_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
-    project_id: Optional[int] = None,
-    user_email: List[str] = Query(None),
-    db: Session = Depends(get_db),
     current_user=Depends(allow_authenticated),
+    db: Session = Depends(get_db)
 ):
-
-    if is_employee_only(current_user):
-        user_email = [current_user.email]
-
-    return timelog_service.get_timelogs(
-        db,
-        skip=skip,
-        limit=limit,
-        project_id=project_id,
-        user_emails=user_email,
-    )
+    try:
+        return timelog_service.get_timelogs(
+            db,
+            skip=skip,
+            limit=limit,
+            project_id=project_id,
+            task_id=task_id,
+            issue_id=issue_id,
+            current_user=current_user if is_employee_only(current_user) else None
+        )
+    except Exception as e:
+        import traceback
+        print(f"[TIMELOG ERROR] Error in read_timelogs: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Timelog Error: {str(e)}")
 
 @router.get("/{timelog_id}", response_model=TimeLogResponse)
 def read_timelog(

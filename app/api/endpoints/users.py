@@ -48,7 +48,6 @@ def read_users(
     limit: int = 100, 
     search: Optional[str] = None,
     role_id: List[int] = Query(None),
-    dept_id: List[int] = Query(None),
     db: Session = Depends(get_db)
 ):
 
@@ -58,7 +57,6 @@ def read_users(
         limit=limit, 
         search=search,
         role_ids=role_id,
-        dept_ids=dept_id
     )
 
 @router.get("/{user_id}", response_model=UserResponse)

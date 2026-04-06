@@ -31,6 +31,6 @@ def auto_populate_timelog(payload, current_user):
     return payload
 
 def auto_populate_milestone(payload, current_user):
-    if not getattr(payload, "owner_id", None):
-        payload.owner_id = current_user.id
+    if not getattr(payload, "owner_email", None):
+        payload.owner_email = current_user.email
     return payload

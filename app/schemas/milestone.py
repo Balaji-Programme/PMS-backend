@@ -12,7 +12,6 @@ class MilestoneBase(BaseModel):
 
 class MilestoneCreate(MilestoneBase):
     project_id: int
-    status_id: int | None = None
     owner_email: str | None = None
     flags: str | None = None
     tags: str | None = None
@@ -23,7 +22,6 @@ class MilestoneUpdate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     project_id: int | None = None
-    status_id: int | None = None
     owner_email: str | None = None
     flags: str | None = None
     tags: str | None = None
@@ -40,13 +38,11 @@ class MilestoneResponse(MilestoneBase):
     id: int
     public_id: str
     project_id: int | None = None
-    status_id: int | None = None
     owner_email: str | None = None
     flags: str | None = None
     tags: str | None = None
 
     project: ProjectBase | None = None
-    status: MasterResponse | None = None
     owner: MilestoneOwnerResponse | None = None
 
     model_config = {"from_attributes": True}
