@@ -1,6 +1,6 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime
 from .masters import MasterResponse
 from .user import UserBase
 from .project import ProjectBase
@@ -67,6 +67,8 @@ class TaskResponse(TaskBase):
     assignee_email: Optional[str] = None
     status_id: Optional[int] = None
     priority_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     project: Optional[ProjectBase] = None
     assignee: Optional[UserBase] = None
