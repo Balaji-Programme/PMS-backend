@@ -28,7 +28,7 @@ class RoleUpdate(BaseModel):
 
 class RoleResponse(RoleBase):
     id: int
-    users_count: int = 0
+    users_count: Optional[int] = None
 
     model_config = {"from_attributes": True}
 

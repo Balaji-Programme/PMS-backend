@@ -25,6 +25,8 @@ class TaskBase(BaseModel):
 
     project: Optional[ProjectBase] = None
 
+    model_config = {"from_attributes": True}
+
 class TaskCreate(TaskBase):
     project_id: Optional[int] = None
     task_list_id: Optional[int] = None

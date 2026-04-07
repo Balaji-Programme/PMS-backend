@@ -24,19 +24,20 @@ def get_timelogs(
     user_emails: List[str] = None,
     current_user=None
 ):
-    from sqlalchemy.orm import selectinload
+    from sqlalchemy.orm import joinedload
     from sqlalchemy import or_
     from app.models.task import Task
+    from app.models.issue import Issue
 
     query = db.query(TimeLog).options(
-        selectinload(TimeLog.user),
-        selectinload(TimeLog.project),
-        selectinload(TimeLog.task).selectinload(Task.project),
-        selectinload(TimeLog.issue)
+        joinedload(TimeLog.user),
+        joinedload(TimeLog.project),
+        joinedload(TimeLog.task).joinedload(Task.project),
+        joinedload(TimeLog.issue)
     )
 
     if project_id:
-        query = query.outerjoin(TimeLog.task).filter(
+        query = query.outerjoin(Task, TimeLog.task_id == Task.id).filter(
             or_(
                 TimeLog.project_id == project_id,
                 Task.project_id == project_id
@@ -52,6 +53,7 @@ def get_timelogs(
         query = query.filter(TimeLog.user_email == current_user.email)
 
     return query.offset(skip).limit(limit).all()
+
 
 def create_timelog(db: Session, timelog: TimeLogCreate, actor_id: Optional[str] = None):
     db_timelog = TimeLog(

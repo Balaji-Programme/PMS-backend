@@ -28,6 +28,8 @@ class IssueBase(BaseModel):
 
     classification: Optional[IssueClassification] = "None"
 
+    model_config = {"from_attributes": True}
+
 class IssueCreate(IssueBase):
     project_id: Optional[int] = None
     reporter_email: Optional[str] = None

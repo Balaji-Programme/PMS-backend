@@ -19,6 +19,8 @@ class UserBase(BaseModel):
     language: Optional[str] = "English"
     timezone: Optional[str] = "Asia/Kolkata"
 
+    model_config = {"from_attributes": True}
+
     @computed_field
     @property
     def name(self) -> str:

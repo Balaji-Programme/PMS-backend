@@ -19,6 +19,8 @@ class ProjectBase(BaseModel):
     actual_end_date: Optional[date] = None
     actual_hours: Optional[float] = None
 
+    model_config = {"from_attributes": True}
+
 class ProjectCreate(ProjectBase):
     manager_email: Optional[str] = None
     status_id: Optional[int] = None
