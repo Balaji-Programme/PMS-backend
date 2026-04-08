@@ -14,10 +14,12 @@ if "azure" in settings.MYSQL_SERVER:
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
+    # Recycle connections before Azure MySQL's 300s idle timeout kills them
     pool_pre_ping=True,
     pool_size=10,
-    max_overflow=20,
-    pool_recycle=3600,
+    max_overflow=30,
+    pool_recycle=280,   # Azure MySQL idles out at ~300s; stay safely under
+    pool_timeout=20,    # Fail fast if no connection available (avoids hanging requests)
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
