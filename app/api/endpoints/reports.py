@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case
 from app.core.database import get_db
 from app.core.security import allow_authenticated
 from app.models.project import Project
@@ -17,45 +17,63 @@ router = APIRouter(dependencies=[Depends(allow_authenticated)])
 
 @router.get("/summary")
 def get_report_summary(db: Session = Depends(get_db)):
-    total_projects = db.query(Project).count()
-    active_projects = db.query(Project).join(
-        Status, Project.status_id == Status.id
-    ).filter(Status.name.notin_(["Completed", "Closed"])).count()
+    # ── Projects: total + active in 1 query ─────────────────────────────────
+    proj_row = db.query(
+        func.count(Project.id).label("total"),
+        func.sum(
+            case(
+                (Status.name.notin_(["Completed", "Closed"]), 1),
+                else_=0,
+            )
+        ).label("active")
+    ).outerjoin(Status, Project.status_id == Status.id).one()
 
-    total_issues = db.query(Issue).count()
-    open_issues = db.query(Issue).join(
-        Status, Issue.status_id == Status.id
-    ).filter(Status.name.notin_(["Completed", "Closed", "Resolved"])).count()
+    # ── Tasks: total + completed in 1 query ──────────────────────────────────
+    task_row = db.query(
+        func.count(Task.id).label("total"),
+        func.sum(
+            case(
+                (Status.name == "Completed", 1),
+                else_=0,
+            )
+        ).label("completed")
+    ).outerjoin(Status, Task.status_id == Status.id).one()
 
-    total_tasks = db.query(Task).count()
-    completed_tasks = db.query(Task).join(
-        Status, Task.status_id == Status.id
-    ).filter(Status.name == "Completed").count()
+    # ── Issues: total + open in 1 query ──────────────────────────────────────
+    issue_row = db.query(
+        func.count(Issue.id).label("total"),
+        func.sum(
+            case(
+                (Status.name.notin_(["Completed", "Closed", "Resolved"]), 1),
+                else_=0,
+            )
+        ).label("open")
+    ).outerjoin(Status, Issue.status_id == Status.id).one()
 
     total_hours_logged = db.query(func.sum(TimeLog.hours)).scalar() or 0.0
-    total_milestones = db.query(Milestone).count()
+    total_milestones   = db.query(func.count(Milestone.id)).scalar() or 0
 
     return {
-        "total_projects": total_projects,
-        "active_projects": active_projects,
-        "total_tasks": total_tasks,
-        "completed_tasks": completed_tasks,
-        "total_issues": total_issues,
-        "open_issues": open_issues,
+        "total_projects":    proj_row.total  or 0,
+        "active_projects":   proj_row.active or 0,
+        "total_tasks":       task_row.total  or 0,
+        "completed_tasks":   task_row.completed or 0,
+        "total_issues":      issue_row.total or 0,
+        "open_issues":       issue_row.open  or 0,
         "total_hours_logged": float(total_hours_logged),
-        "total_milestones": total_milestones
+        "total_milestones":  total_milestones,
     }
 
 @router.get("/project/{project_id}")
 def get_project_report(project_id: int, db: Session = Depends(get_db)):
-    from sqlalchemy.orm import joinedload
     from app.models.user import User
+    from app.models.masters import Priority
 
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         return {"error": "Project not found"}
 
-    # ── Task counts ────────────────────────────────────────────────────────────
+    # ── Task counts by status ─────────────────────────────────────────────────
     task_rows = (
         db.query(Status.name, func.count(Task.id))
         .join(Status, Task.status_id == Status.id)
@@ -63,12 +81,11 @@ def get_project_report(project_id: int, db: Session = Depends(get_db)):
         .group_by(Status.name)
         .all()
     )
-    tasks_by_status = [{"status": r[0], "count": r[1]} for r in task_rows]
-    total_tasks    = sum(r["count"] for r in tasks_by_status)
-    completed_tasks = sum(r["count"] for r in tasks_by_status if r["status"] == "Completed")
+    tasks_by_status  = [{"status": r[0], "count": r[1]} for r in task_rows]
+    total_tasks      = sum(r["count"] for r in tasks_by_status)
+    completed_tasks  = sum(r["count"] for r in tasks_by_status if r["status"] == "Completed")
 
-    # ── Issue counts ───────────────────────────────────────────────────────────
-    from app.models.masters import Priority
+    # ── Issue counts by priority ──────────────────────────────────────────────
     issue_rows = (
         db.query(Priority.name, func.count(Issue.id))
         .join(Priority, Issue.priority_id == Priority.id)
@@ -77,50 +94,57 @@ def get_project_report(project_id: int, db: Session = Depends(get_db)):
         .all()
     )
     issues_by_priority = [{"priority": r[0], "count": r[1]} for r in issue_rows]
+    total_issues       = sum(r["count"] for r in issues_by_priority)
 
     open_issues_count = (
-        db.query(Issue)
+        db.query(func.count(Issue.id))
         .join(Status, Issue.status_id == Status.id)
         .filter(Issue.project_id == project_id, Status.name.notin_(["Closed", "Resolved"]))
-        .count()
+        .scalar() or 0
     )
 
-    # ── Hours by user ──────────────────────────────────────────────────────────
+    # ── Hours by user — single aggregation query, then 1 batch user lookup ───
     hours_rows = (
-        db.query(TimeLog.user_email, func.sum(TimeLog.hours))
+        db.query(TimeLog.user_email, func.sum(TimeLog.hours).label("total_hours"))
         .filter(TimeLog.project_id == project_id)
         .group_by(TimeLog.user_email)
         .order_by(func.sum(TimeLog.hours).desc())
         .limit(10)
         .all()
     )
-    # Enrich with display names
-    hours_by_user = []
-    for email, hours in hours_rows:
-        u = db.query(User).filter(User.email == email).first()
-        hours_by_user.append({
-            "email": email,
-            "name": f"{u.first_name} {u.last_name}".strip() if u else email,
-            "hours": float(hours or 0),
-        })
 
+    # Batch-fetch all relevant users in ONE query (fixes N+1)
+    emails = [row.user_email for row in hours_rows]
+    users_map = {}
+    if emails:
+        user_records = db.query(User.email, User.first_name, User.last_name).filter(User.email.in_(emails)).all()
+        users_map = {u.email: f"{u.first_name} {u.last_name}".strip() for u in user_records}
+
+    hours_by_user = [
+        {
+            "email": row.user_email,
+            "name":  users_map.get(row.user_email, row.user_email),
+            "hours": float(row.total_hours or 0),
+        }
+        for row in hours_rows
+    ]
     total_hours = sum(r["hours"] for r in hours_by_user)
 
     # ── Milestones ─────────────────────────────────────────────────────────────
-    total_milestones = db.query(Milestone).filter(Milestone.project_id == project_id).count()
+    total_milestones = db.query(func.count(Milestone.id)).filter(Milestone.project_id == project_id).scalar() or 0
 
     return {
-        "project_id": project_id,
-        "project_name": project.name,
-        "total_tasks": total_tasks,
-        "completed_tasks": completed_tasks,
-        "total_issues": len(issues_by_priority and [r for rows in [issue_rows] for r in rows] or []),
-        "open_issues": open_issues_count,
-        "total_milestones": total_milestones,
+        "project_id":         project_id,
+        "project_name":       project.name,
+        "total_tasks":        total_tasks,
+        "completed_tasks":    completed_tasks,
+        "total_issues":       total_issues,
+        "open_issues":        open_issues_count,
+        "total_milestones":   total_milestones,
         "total_hours_logged": total_hours,
-        "tasks_by_status": tasks_by_status,
+        "tasks_by_status":    tasks_by_status,
         "issues_by_priority": issues_by_priority,
-        "hours_by_user": hours_by_user,
+        "hours_by_user":      hours_by_user,
     }
 
 
@@ -153,3 +177,5 @@ def export_csv_report(report_type: str = "projects", db: Session = Depends(get_d
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={report_type}_report.csv"}
     )
+
+

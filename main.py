@@ -1,7 +1,9 @@
 import os
 import uvicorn
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -16,19 +18,26 @@ from fastapi.staticfiles import StaticFiles
 if not os.path.exists("uploads"):
     os.makedirs("uploads")
 
-Base.metadata.create_all(bind=engine)
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
+
+# Only run DDL sync in non-production (use Alembic migrations in production)
+if not IS_PRODUCTION:
+    Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    # Disable docs in production to avoid leaking API schema
+    docs_url=None if IS_PRODUCTION else "/docs",
+    redoc_url=None if IS_PRODUCTION else "/redoc",
+    openapi_url=f"{settings.API_V1_STR}/openapi.json" if not IS_PRODUCTION else None,
 )
 
 add_exception_handlers(app)
 
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+# ── Middleware stack (order matters — applied bottom-up) ──────────────────────
 
-IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 class ForceHTTPSMiddleware:
     def __init__(self, app):
@@ -43,6 +52,9 @@ class ForceHTTPSMiddleware:
         return await self.app(scope, receive, send)
 
 app.add_middleware(ForceHTTPSMiddleware)
+
+# GZip compress all responses ≥ 1 KB (JSON compresses 70-90%)
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
