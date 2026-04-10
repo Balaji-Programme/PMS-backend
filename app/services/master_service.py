@@ -1,98 +1,100 @@
-from sqlalchemy.orm import Session, joinedload
+from __future__ import annotations
+
+from typing import List, Optional
+
+from sqlalchemy import select, update as sa_update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from app.models.masters import UserStatus, Skill, Status, Priority
 from app.models.roles import Role
 from app.models.user import User
 
-def get_user_statuses(db: Session):
-    return db.query(UserStatus).all()
+async def get_user_statuses(db: AsyncSession) -> List[UserStatus]:
+    return (await db.execute(select(UserStatus))).scalars().all()
 
-def get_statuses(db: Session):
-    return db.query(Status).all()
+async def get_statuses(db: AsyncSession) -> List[Status]:
+    return (await db.execute(select(Status))).scalars().all()
 
-def get_priorities(db: Session):
-    return db.query(Priority).all()
+async def get_priorities(db: AsyncSession) -> List[Priority]:
+    return (await db.execute(select(Priority))).scalars().all()
 
-def get_roles(db: Session):
-    return db.query(Role).all()
+async def get_skills(db: AsyncSession) -> List[Skill]:
+    return (await db.execute(select(Skill))).scalars().all()
 
-def get_role(db: Session, role_id: int):
-    return db.query(Role).options(joinedload(Role.users)).filter(Role.id == role_id).first()
+async def get_roles(db: AsyncSession) -> List[Role]:
+    return (await db.execute(select(Role))).scalars().all()
 
-def create_role(db: Session, role: dict):
-    user_ids = role.pop('user_ids', [])
+async def get_role(db: AsyncSession, role_id: int) -> Optional[Role]:
+    result = await db.execute(
+        select(Role).options(selectinload(Role.users)).where(Role.id == role_id)
+    )
+    return result.scalar_one_or_none()
 
+async def create_role(db: AsyncSession, role: dict) -> Role:
+    user_ids = role.pop("user_ids", [])
     db_role = Role(**role)
     db.add(db_role)
-    db.commit()
-    db.refresh(db_role)
+    await db.flush()
 
     if user_ids:
-        users_to_update = db.query(User).filter(User.id.in_(user_ids)).all()
-        for user in users_to_update:
-            user.role_id = db_role.id
-        db.commit()
+        await db.execute(
+            sa_update(User).where(User.id.in_(user_ids)).values(role_id=db_role.id)
+        )
 
+    await db.commit()
+    await db.refresh(db_role)
     return db_role
 
-def update_role(db: Session, role_id: int, role: dict):
-    db_role = db.query(Role).filter(Role.id == role_id).first()
+async def update_role(db: AsyncSession, role_id: int, role: dict) -> Optional[Role]:
+    result = await db.execute(select(Role).where(Role.id == role_id))
+    db_role = result.scalar_one_or_none()
+    if not db_role:
+        return None
 
-    if db_role:
-        user_ids = role.pop('user_ids', None)
+    user_ids = role.pop("user_ids", None)
+    for key, value in role.items():
+        setattr(db_role, key, value)
 
-        for key, value in role.items():
-            setattr(db_role, key, value)
+    if user_ids is not None:
+        await db.execute(sa_update(User).where(User.role_id == role_id).values(role_id=None))
+        if user_ids:
+            await db.execute(sa_update(User).where(User.id.in_(user_ids)).values(role_id=db_role.id))
 
-        if user_ids is not None:
-            db.query(User).filter(User.role_id == role_id).update({"role_id": None})
-
-            if user_ids:
-                users_to_update = db.query(User).filter(User.id.in_(user_ids)).all()
-                for user in users_to_update:
-                    user.role_id = db_role.id
-
-        db.commit()
-        db.refresh(db_role)
-
+    await db.commit()
+    await db.refresh(db_role)
     return db_role
 
-def delete_role(db: Session, role_id: int):
-    db_role = db.query(Role).filter(Role.id == role_id).first()
-    if db_role:
-        db.delete(db_role)
-        db.commit()
-        return True
-    return False
+async def delete_role(db: AsyncSession, role_id: int) -> bool:
+    result = await db.execute(select(Role).where(Role.id == role_id))
+    db_role = result.scalar_one_or_none()
+    if not db_role:
+        return False
+    await db.delete(db_role)
+    await db.commit()
+    return True
 
-def get_skills(db: Session):
-    return db.query(Skill).all()
-
-def search_statuses(db: Session, query: str, limit: int = 20):
+async def search_statuses(db: AsyncSession, query: str, limit: int = 20) -> List[Status]:
     if not query:
         return []
-    q = f"%{query}%"
-    return db.query(Status).filter(Status.name.ilike(q)).limit(limit).all()
+    return (await db.execute(select(Status).where(Status.name.ilike(f"%{query}%")).limit(limit))).scalars().all()
 
-def search_priorities(db: Session, query: str, limit: int = 20):
+async def search_priorities(db: AsyncSession, query: str, limit: int = 20) -> List[Priority]:
     if not query:
         return []
-    q = f"%{query}%"
-    return db.query(Priority).filter(Priority.name.ilike(q)).limit(limit).all()
+    return (await db.execute(select(Priority).where(Priority.name.ilike(f"%{query}%")).limit(limit))).scalars().all()
 
-def search_user_statuses(db: Session, query: str, limit: int = 20):
+async def search_user_statuses(db: AsyncSession, query: str, limit: int = 20) -> List[UserStatus]:
     if not query:
         return []
-    q = f"%{query}%"
-    return db.query(UserStatus).filter(UserStatus.name.ilike(q)).limit(limit).all()
+    return (await db.execute(select(UserStatus).where(UserStatus.name.ilike(f"%{query}%")).limit(limit))).scalars().all()
 
-def search_roles(db: Session, query: str, limit: int = 20):
+async def search_roles(db: AsyncSession, query: str, limit: int = 20) -> List[Role]:
     if not query:
         return []
-    q = f"%{query}%"
-    return db.query(Role).filter(Role.name.ilike(q)).limit(limit).all()
+    return (await db.execute(select(Role).where(Role.name.ilike(f"%{query}%")).limit(limit))).scalars().all()
 
-def search_skills(db: Session, query: str, limit: int = 20):
+async def search_skills(db: AsyncSession, query: str, limit: int = 20) -> List[Skill]:
     if not query:
         return []
-    q = f"%{query}%"
-    return db.query(Skill).filter(Skill.name.ilike(q)).limit(limit).all()
+    return (await db.execute(select(Skill).where(Skill.name.ilike(f"%{query}%")).limit(limit))).scalars().all()

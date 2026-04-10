@@ -1,15 +1,22 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Date, Numeric, Boolean, Table
-from sqlalchemy.orm import relationship
-from app.core.database import AuditMixin, Base
+from __future__ import annotations
 
-ISSUE_CLASSIFICATIONS = [
-    "None", "Security", "Crash", "Data Loss", "Performance",
-    "UI/UX", "Other", "Feature", "Enhancement"
-]
+import enum
+from datetime import date, datetime
+from typing import List, Optional
 
-ISSUE_STATUSES = [
-    "Open", "In Progress", "In Review", "To Be Tested", "Re-opened", "Closed"
-]
+from sqlalchemy import (
+    Boolean, Column, Date, DateTime, Enum as SAEnum, ForeignKey,
+    Integer, Numeric, String, Text, Table
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.core.database import Base, AuditMixin
+
+class Severity(str, enum.Enum):
+    CRITICAL = "Critical"
+    HIGH = "High"
+    MEDIUM = "Medium"
+    LOW = "Low"
 
 issue_followers = Table(
     "issue_followers",
@@ -28,38 +35,38 @@ issue_assignees = Table(
 class Issue(AuditMixin, Base):
     __tablename__ = "issues"
 
-    id = Column(Integer, primary_key=True, index=True)
-    public_id = Column(String(50), unique=True, index=True, nullable=False)
-    title = Column(String(255), index=True, nullable=False)
-    description = Column(Text, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
 
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
+    bug_name: Mapped[str] = mapped_column(String(255), index=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    reporter_email = Column(String(255), ForeignKey("users.email"), nullable=True)
-    assignee_email = Column(String(255), ForeignKey("users.email"), nullable=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
+    associated_team_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"), nullable=True)
 
-    status_id = Column(Integer, ForeignKey("statuses.id"), nullable=True)
-    priority_id = Column(Integer, ForeignKey("priorities.id"), nullable=True)
+    reporter_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assignee_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
-    classification = Column(String(50), nullable=True, default="None")
-    module = Column(String(100), nullable=True)
-    tags = Column(String(500), nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    severity: Mapped[Optional[Severity]] = mapped_column(SAEnum(Severity), nullable=True)
+    
+    classification: Mapped[Optional[str]] = mapped_column(String(50), default="None", nullable=True)
+    module: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    tags: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
-    previous_status = Column(String(100), nullable=True)
+    reproducible_flag: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    start_date = Column(Date, nullable=True)
-    end_date = Column(Date, nullable=True)
-    due_date = Column(Date, nullable=True)
-    estimated_hours = Column(Numeric(5, 2), nullable=True)
-    is_processed = Column(Boolean, default=False)
+    start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    due_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    
+    last_closed_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    estimated_hours: Mapped[Optional[float]] = mapped_column(Numeric(5, 2), nullable=True)
+    is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    project = relationship("Project", back_populates="issues")
-    reporter = relationship("User", foreign_keys=[reporter_email])
-    assignee = relationship("User", foreign_keys=[assignee_email])
-    status = relationship("Status")
-    priority = relationship("Priority")
+    project  = relationship("Project", back_populates="issues", lazy="selectin")
+    reporter = relationship("User", foreign_keys=[reporter_id], lazy="selectin")
+    assignee = relationship("User", foreign_keys=[assignee_id], lazy="selectin")
 
-    followers = relationship("User", secondary=issue_followers, backref="followed_issues")
-    assignees = relationship("User", secondary=issue_assignees, backref="assigned_issues")
-
-    documents = relationship("Document", secondary="issue_document_link", back_populates="issues")
+    followers = relationship("User", secondary=issue_followers, lazy="selectin")
+    assignees = relationship("User", secondary=issue_assignees, lazy="selectin")

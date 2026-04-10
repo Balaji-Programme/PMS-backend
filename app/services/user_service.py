@@ -1,219 +1,227 @@
+from __future__ import annotations
+
 from typing import List, Optional
-from sqlalchemy import or_
-from sqlalchemy.orm import Session, joinedload
+
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from app.models.user import User
 from app.models.masters import Skill
 from app.models.roles import Role
 from app.schemas.user import UserCreate, UserUpdate
 from app.utils.ids import generate_public_id
-from app.utils.audit_utils import write_audit, capture_audit_details
+from app.utils.audit_utils import capture_audit_details, write_audit
 
-def get_user(db: Session, user_id: int):
-    return db.query(User).options(
-        joinedload(User.role),
-        joinedload(User.status),
-        joinedload(User.skills)
-    ).filter(User.id == user_id).first()
+def _user_query():
+    return (
+        select(User)
+        .options(
+            selectinload(User.role),
+            selectinload(User.status),
+            selectinload(User.skills),
+        )
+    )
 
-def get_user_by_email(db: Session, email: str):
-    return db.query(User).filter(User.email == email).first()
+async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
+    result = await db.execute(_user_query().where(User.id == user_id))
+    return result.scalar_one_or_none()
 
-def get_user_by_username(db: Session, username: str):
-    return db.query(User).filter(User.username == username).first()
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
+    result = await db.execute(select(User).where(User.email == email))
+    return result.scalar_one_or_none()
 
-def get_users(
-    db: Session,
+async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User]:
+    result = await db.execute(select(User).where(User.username == username))
+    return result.scalar_one_or_none()
+
+async def get_users(
+    db: AsyncSession,
     skip: int = 0,
     limit: int = 100,
     search: Optional[str] = None,
     role_ids: Optional[List[int]] = None,
-):
-    query = db.query(User).options(
-        joinedload(User.role),
-        joinedload(User.status),
-        joinedload(User.skills)
-    )
+) -> dict:
+    stmt = _user_query()
 
     if search:
-        from sqlalchemy import or_
         q = f"%{search}%"
-        query = query.filter(
+        stmt = stmt.where(
             or_(
                 User.first_name.ilike(q),
                 User.last_name.ilike(q),
                 User.email.ilike(q),
                 User.username.ilike(q),
-                User.display_name.ilike(q)
+                User.display_name.ilike(q),
             )
         )
-
     if role_ids:
-        query = query.filter(User.role_id.in_(role_ids))
+        stmt = stmt.where(User.role_id.in_(role_ids))
 
-    total = query.count()
-    data = query.offset(skip).limit(limit).all()
-
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar() or 0
+    data = (await db.execute(stmt.offset(skip).limit(limit))).scalars().unique().all()
     return {"total": total, "data": data}
 
-def create_user(db: Session, user: UserCreate, actor_id: Optional[str] = None):
+async def create_user(
+    db: AsyncSession,
+    user: UserCreate,
+    actor_id: Optional[str] = None,
+) -> User:
     public_id = generate_public_id("USR-")
-
     db_user = User(
-        public_id=public_id,
-        employee_id=user.employee_id or generate_public_id("EMP-"),
-        first_name=user.first_name,
-        last_name=user.last_name,
-        email=user.email,
-        username=user.username or user.email.split("@")[0],
-        o365_id=user.o365_id,
-        phone=user.phone,
-        job_title=user.job_title,
-        join_date=user.join_date,
-        role_id=user.role_id,
-        status_id=user.status_id,
-        manager_email=user.manager_email,
-        display_name=user.display_name,
-        gender=user.gender,
-        country=user.country,
-        state=user.state,
-        language=user.language,
-        timezone=user.timezone
+        public_id    = public_id,
+        employee_id  = user.employee_id or generate_public_id("EMP-"),
+        first_name   = user.first_name,
+        last_name    = user.last_name,
+        email        = user.email,
+        username     = user.username or user.email.split("@")[0],
+        o365_id      = user.o365_id,
+        phone        = user.phone,
+        job_title    = user.job_title,
+        join_date    = user.join_date,
+        role_id      = user.role_id,
+        status_id    = user.status_id,
+        manager_email = user.manager_email,
+        display_name = user.display_name,
+        gender       = user.gender,
+        country      = user.country,
+        state        = user.state,
+        language     = user.language,
+        timezone     = user.timezone,
     )
 
     if user.skill_ids:
-        skills = db.query(Skill).filter(Skill.id.in_(user.skill_ids)).all()
+        skills = (await db.execute(select(Skill).where(Skill.id.in_(user.skill_ids)))).scalars().all()
         db_user.skills.extend(skills)
 
     db.add(db_user)
-    db.flush()
+    await db.flush()
 
-    write_audit(db, actor_id, "CREATE", "users",
-                resource_id=db_user.id,
-                record_id=db_user.id,
-                details=[{"field_name": "email", "old_value": None, "new_value": user.email}])
+    await write_audit(
+        db, actor_id, "CREATE", "users", db_user.id, db_user.id,
+        [{"field_name": "email", "old_value": None, "new_value": user.email}],
+    )
+    await db.commit()
+    return await get_user(db, db_user.id)
 
-    db.commit()
-    db.refresh(db_user)
-    return get_user(db, db_user.id)
-
-def update_user(db: Session, user_id: int, user_update: UserUpdate, actor_id: Optional[str] = None):
-    db_user = db.query(User).filter(User.id == user_id).first()
+async def update_user(
+    db: AsyncSession,
+    user_id: int,
+    user_update: UserUpdate,
+    actor_id: Optional[str] = None,
+) -> Optional[User]:
+    result = await db.execute(select(User).where(User.id == user_id))
+    db_user = result.scalar_one_or_none()
     if not db_user:
         return None
 
     update_data = user_update.model_dump(exclude_unset=True)
     changes = capture_audit_details(db_user, update_data)
 
-    if "skill_ids" in update_data:
-        skill_ids = update_data.pop("skill_ids")
-        if skill_ids is not None:
-            skills = db.query(Skill).filter(Skill.id.in_(skill_ids)).all()
-            db_user.skills = skills
+    skill_ids = update_data.pop("skill_ids", None)
+    if skill_ids is not None:
+        skills = (await db.execute(select(Skill).where(Skill.id.in_(skill_ids)))).scalars().all()
+        db_user.skills = list(skills)
 
     for key, value in update_data.items():
         setattr(db_user, key, value)
 
-    write_audit(db, actor_id, "UPDATE", "users",
-                resource_id=user_id,
-                record_id=user_id,
-                details=changes)
+    await write_audit(db, actor_id, "UPDATE", "users", user_id, user_id, changes)
+    await db.commit()
+    return await get_user(db, user_id)
 
-    db.commit()
-    db.refresh(db_user)
-    return get_user(db, db_user.id)
+async def delete_user(
+    db: AsyncSession,
+    user_id: int,
+    actor_id: Optional[str] = None,
+) -> bool:
+    result = await db.execute(select(User).where(User.id == user_id))
+    db_user = result.scalar_one_or_none()
+    if not db_user:
+        return False
+    await write_audit(
+        db, actor_id, "DELETE", "users", user_id, user_id,
+        [{"field_name": "email", "old_value": db_user.email, "new_value": None}],
+    )
+    await db.delete(db_user)
+    await db.commit()
+    return True
 
-def delete_user(db: Session, user_id: int, actor_id: Optional[str] = None):
-    db_user = db.query(User).filter(User.id == user_id).first()
-    if db_user:
-        write_audit(db, actor_id, "DELETE", "users",
-                    resource_id=user_id,
-                    record_id=user_id,
-                    details=[{"field_name": "email", "old_value": db_user.email, "new_value": None}])
-        db.delete(db_user)
-        db.commit()
-        return True
-    return False
-
-def search_users(db: Session, query: str, limit: int = 20):
+async def search_users(db: AsyncSession, query: str, limit: int = 20) -> List[User]:
     if not query:
         return []
     q = f"%{query}%"
-    from sqlalchemy import or_
-    return db.query(User).options(
-        joinedload(User.role),
-        joinedload(User.status)
-    ).filter(
-        or_(
-            User.first_name.ilike(q),
-            User.last_name.ilike(q),
-            User.email.ilike(q),
-            User.username.ilike(q),
-            User.display_name.ilike(q)
-        )
-    ).limit(limit).all()
+    result = await db.execute(
+        _user_query().where(
+            or_(
+                User.first_name.ilike(q),
+                User.last_name.ilike(q),
+                User.email.ilike(q),
+                User.username.ilike(q),
+                User.display_name.ilike(q),
+            )
+        ).limit(limit)
+    )
+    return result.scalars().unique().all()
 
-def upsert_o365_user(
-    db: Session,
+async def upsert_o365_user(
+    db: AsyncSession,
     o365_id: str,
     email: str,
     first_name: str,
     last_name: str,
     display_name: Optional[str] = None,
 ) -> User:
-
-    user = db.query(User).filter(User.o365_id == o365_id).first()
+    user = (await db.execute(select(User).where(User.o365_id == o365_id))).scalar_one_or_none()
 
     if not user and email:
-        user = db.query(User).filter(User.email == email.lower()).first()
+        user = (await db.execute(select(User).where(User.email == email.lower()))).scalar_one_or_none()
 
     if user:
-        user.o365_id = o365_id
+        user.o365_id  = o365_id
         user.is_synced = True
-
         if not user.role_id:
-            default_role = db.query(Role).filter(Role.name == "Employee").first()
+            default_role = (await db.execute(select(Role).where(Role.name == "Employee"))).scalar_one_or_none()
             if default_role:
                 user.role_id = default_role.id
-
         if not user.status_id:
             from app.models.masters import UserStatus
-            default_status = db.query(UserStatus).filter(UserStatus.name == "Active").first()
+            default_status = (await db.execute(select(UserStatus).where(UserStatus.name == "Active"))).scalar_one_or_none()
             if default_status:
                 user.status_id = default_status.id
-
         if first_name:
             user.first_name = first_name
         if last_name:
             user.last_name = last_name
         if display_name:
             user.display_name = display_name
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
         return user
 
-    default_role = db.query(Role).filter(Role.name == "Employee").first()
-    username = email.split("@")[0].lower().replace(".", "_")
-
-    base_username = username
+    default_role = (await db.execute(select(Role).where(Role.name == "Employee"))).scalar_one_or_none()
+    base_username = email.split("@")[0].lower().replace(".", "_")
+    username = base_username
     counter = 1
-    while db.query(User).filter(User.username == username).first():
+    while (await db.execute(select(User.id).where(User.username == username))).scalar_one_or_none():
         username = f"{base_username}_{counter}"
         counter += 1
 
     new_user = User(
-        public_id=generate_public_id("USR-"),
-        employee_id=generate_public_id("EMP-"),
-        first_name=first_name or email.split("@")[0],
-        last_name=last_name or "",
-        email=email.lower(),
-        username=username,
-        display_name=display_name or f"{first_name} {last_name}".strip(),
-        o365_id=o365_id,
-        is_synced=True,
-        is_external=False,
-        role_id=default_role.id if default_role else None,
+        public_id    = generate_public_id("USR-"),
+        employee_id  = generate_public_id("EMP-"),
+        first_name   = first_name or email.split("@")[0],
+        last_name    = last_name or "",
+        email        = email.lower(),
+        username     = username,
+        display_name = display_name or f"{first_name} {last_name}".strip(),
+        o365_id      = o365_id,
+        is_synced    = True,
+        is_external  = False,
+        role_id      = default_role.id if default_role else None,
     )
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    await db.commit()
+    await db.refresh(new_user)
     return new_user

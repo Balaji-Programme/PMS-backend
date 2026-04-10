@@ -1,85 +1,106 @@
+from __future__ import annotations
+
 from typing import List, Optional
-from sqlalchemy.orm import Session, joinedload
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from app.models.milestone import Milestone
 from app.schemas.milestone import MilestoneCreate, MilestoneUpdate
 from app.utils.ids import generate_public_id
-from app.utils.audit_utils import write_audit, capture_audit_details
-from datetime import date
+from app.utils.audit_utils import capture_audit_details, write_audit
 
-def get_milestone(db: Session, milestone_id: int):
-    return db.query(Milestone).options(
-        joinedload(Milestone.project),
-        joinedload(Milestone.owner)
-    ).filter(Milestone.id == milestone_id).first()
+def _milestone_query():
+    return (
+        select(Milestone)
+        .options(
+            selectinload(Milestone.project),
+            selectinload(Milestone.owner),
+        )
+    )
 
-def get_milestones(
-    db: Session,
-    project_id: int = None,
+async def get_milestone(db: AsyncSession, milestone_id: int) -> Optional[Milestone]:
+    result = await db.execute(_milestone_query().where(Milestone.id == milestone_id))
+    return result.scalar_one_or_none()
+
+async def get_milestones(
+    db: AsyncSession,
+    project_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
-):
-    query = db.query(Milestone).options(
-        joinedload(Milestone.project),
-        joinedload(Milestone.owner)
-    )
+) -> List[Milestone]:
+    stmt = _milestone_query()
     if project_id:
-        query = query.filter(Milestone.project_id == project_id)
+        stmt = stmt.where(Milestone.project_id == project_id)
+    result = await db.execute(stmt.offset(skip).limit(limit))
+    return result.scalars().unique().all()
 
-    return query.offset(skip).limit(limit).all()
-
-def create_milestone(db: Session, milestone: MilestoneCreate, actor_id: Optional[str] = None):
+async def create_milestone(
+    db: AsyncSession,
+    milestone: MilestoneCreate,
+    actor_id: Optional[str] = None,
+) -> Milestone:
     public_id = generate_public_id("MLS-")
     db_milestone = Milestone(
-        public_id=public_id,
-        title=milestone.title,
-        description=milestone.description,
-        start_date=milestone.start_date,
-        end_date=milestone.end_date,
-        project_id=milestone.project_id,
-        owner_email=milestone.owner_email,
-        flags=milestone.flags,
-        tags=milestone.tags
+        public_id   = public_id,
+        title       = milestone.title,
+        description = milestone.description,
+        start_date  = milestone.start_date,
+        end_date    = milestone.end_date,
+        project_id  = milestone.project_id,
+        owner_email = milestone.owner_email,
+        flags       = milestone.flags,
+        tags        = milestone.tags,
     )
     db.add(db_milestone)
-    db.flush()
+    await db.flush()
 
-    write_audit(db, actor_id, "CREATE", "milestones",
-                resource_id=milestone.project_id or db_milestone.id,
-                record_id=db_milestone.id,
-                details=[{"field_name": "title", "old_value": None, "new_value": milestone.title}])
+    await write_audit(
+        db, actor_id, "CREATE", "milestones",
+        milestone.project_id or db_milestone.id, db_milestone.id,
+        [{"field_name": "title", "old_value": None, "new_value": milestone.title}],
+    )
+    await db.commit()
+    return await get_milestone(db, db_milestone.id)
 
-    db.commit()
-    db.refresh(db_milestone)
-    return get_milestone(db, db_milestone.id)
-
-def update_milestone(db: Session, milestone_id: int, milestone_update: MilestoneUpdate, actor_id: Optional[str] = None):
-    db_milestone = db.query(Milestone).filter(Milestone.id == milestone_id).first()
+async def update_milestone(
+    db: AsyncSession,
+    milestone_id: int,
+    milestone_update: MilestoneUpdate,
+    actor_id: Optional[str] = None,
+) -> Optional[Milestone]:
+    result = await db.execute(select(Milestone).where(Milestone.id == milestone_id))
+    db_milestone = result.scalar_one_or_none()
     if not db_milestone:
         return None
 
     update_data = milestone_update.model_dump(exclude_unset=True)
     changes = capture_audit_details(db_milestone, update_data)
-
     for key, value in update_data.items():
         setattr(db_milestone, key, value)
 
-    write_audit(db, actor_id, "UPDATE", "milestones",
-                resource_id=db_milestone.project_id or milestone_id,
-                record_id=milestone_id,
-                details=changes)
+    await write_audit(
+        db, actor_id, "UPDATE", "milestones",
+        db_milestone.project_id or milestone_id, milestone_id, changes,
+    )
+    await db.commit()
+    return await get_milestone(db, milestone_id)
 
-    db.commit()
-    db.refresh(db_milestone)
-    return get_milestone(db, db_milestone.id)
-
-def delete_milestone(db: Session, milestone_id: int, actor_id: Optional[str] = None):
-    db_milestone = db.query(Milestone).filter(Milestone.id == milestone_id).first()
-    if db_milestone:
-        write_audit(db, actor_id, "DELETE", "milestones",
-                    resource_id=db_milestone.project_id or milestone_id,
-                    record_id=milestone_id,
-                    details=[{"field_name": "title", "old_value": db_milestone.title, "new_value": None}])
-        db.delete(db_milestone)
-        db.commit()
-        return True
-    return False
+async def delete_milestone(
+    db: AsyncSession,
+    milestone_id: int,
+    actor_id: Optional[str] = None,
+) -> bool:
+    result = await db.execute(select(Milestone).where(Milestone.id == milestone_id))
+    db_milestone = result.scalar_one_or_none()
+    if not db_milestone:
+        return False
+    await write_audit(
+        db, actor_id, "DELETE", "milestones",
+        db_milestone.project_id or milestone_id, milestone_id,
+        [{"field_name": "title", "old_value": db_milestone.title, "new_value": None}],
+    )
+    await db.delete(db_milestone)
+    await db.commit()
+    return True

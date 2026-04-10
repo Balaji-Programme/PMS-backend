@@ -1,86 +1,125 @@
-from pydantic import BaseModel, field_validator
-from typing import Optional, List
-from datetime import date, datetime
-from .masters import MasterResponse
-from .user import UserBase
-from .project import ProjectBase
+from __future__ import annotations
 
-TASK_STATUS_CHOICES = [
-    "Open", "In Progress", "In Review", "To Be Tested", "Completed", "On Hold", "Closed"
-]
+from datetime import date
+from typing import List, Optional
 
-class TaskBase(BaseModel):
-    title: str
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.schemas.user import UserBase
+
+class TaskCreate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    task_name: str = Field(..., min_length=1)
     description: Optional[str] = None
-    due_date: Optional[date] = None
 
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-
-    progress: int = 0
-
-    estimated_hours: Optional[float] = 0.0
-    actual_hours: Optional[float] = 0.0
-    billing_type: Optional[str] = "Billable"
-
-    project: Optional[ProjectBase] = None
-
-    model_config = {"from_attributes": True}
-
-class TaskCreate(TaskBase):
-    project_id: Optional[int] = None
+    project_id: Optional[int]   = None
     task_list_id: Optional[int] = None
-    assignee_email: Optional[str] = None
-    assignee_ids: Optional[List[int]] = []
-    owner_ids: Optional[List[int]] = []
-    status_id: Optional[int] = None
-    priority_id: Optional[int] = None
-    created_by_email: Optional[str] = None
+    associated_team_id: Optional[int] = None
 
-    @field_validator("title")
-    @classmethod
-    def title_must_not_be_empty(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Task title must not be empty")
-        return v.strip()
+    assignee_id: Optional[int]   = None
+    owner_id: Optional[int]      = None
+
+    status: Optional[str]   = None
+    priority: Optional[str] = None
+    tags: Optional[str]     = None
+
+    start_date: Optional[date]      = None
+    due_date: Optional[date]        = None
+    duration: Optional[int]         = None
+    completion_percentage: Optional[int] = 0
+
+    estimated_hours: Optional[float] = None
+    work_hours: Optional[float]      = 0.0
+    billing_type: Optional[str]      = "Billable"
+
+    owner_emails: List[str]    = Field(default_factory=list)
+    assignee_emails: List[str] = Field(default_factory=list)
 
 class TaskUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    due_date: Optional[date] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    progress: Optional[int] = None
-    estimated_hours: Optional[float] = None
-    actual_hours: Optional[float] = None
-    project_id: Optional[int] = None
-    task_list_id: Optional[int] = None
-    assignee_email: Optional[str] = None
-    assignee_ids: Optional[List[int]] = None
-    owner_ids: Optional[List[int]] = None
-    status_id: Optional[int] = None
-    priority_id: Optional[int] = None
+    model_config = ConfigDict(from_attributes=True)
 
-class TaskResponse(TaskBase):
+    task_name: Optional[str]            = None
+    description: Optional[str]          = None
+    project_id: Optional[int]           = None
+    task_list_id: Optional[int]         = None
+    associated_team_id: Optional[int]   = None
+    assignee_id: Optional[int]          = None
+    owner_id: Optional[int]             = None
+    status: Optional[str]               = None
+    priority: Optional[str]             = None
+    tags: Optional[str]                 = None
+    start_date: Optional[date]          = None
+    due_date: Optional[date]            = None
+    completion_date: Optional[date]     = None
+    duration: Optional[int]             = None
+    completion_percentage: Optional[int]= None
+    estimated_hours: Optional[float]    = None
+    work_hours: Optional[float]         = None
+    billing_type: Optional[str]         = None
+
+    owner_emails: Optional[List[str]]    = None
+    assignee_emails: Optional[List[str]] = None
+
+class TaskResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     public_id: str
-    project_id: Optional[int] = None
-    task_list_id: Optional[int] = None
-    assignee_email: Optional[str] = None
-    status_id: Optional[int] = None
-    priority_id: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    task_name: str
+    description: Optional[str]
 
-    project: Optional[ProjectBase] = None
-    assignee: Optional[UserBase] = None
-    assignees: Optional[List[UserBase]] = []
-    owners: Optional[List[UserBase]] = []
-    status: Optional[MasterResponse] = None
-    priority: Optional[MasterResponse] = None
+    project_id: Optional[int]
+    task_list_id: Optional[int]
+    associated_team_id: Optional[int]
 
-    model_config = {"from_attributes": True}
+    assignee_id: Optional[int]
+    owner_id: Optional[int]
+    created_by_id: Optional[int]
+
+    status: Optional[str]
+    priority: Optional[str]
+    tags: Optional[str]
+
+    start_date: Optional[date]
+    due_date: Optional[date]
+    completion_date: Optional[date]
+    duration: Optional[int]
+    completion_percentage: Optional[int]
+
+    estimated_hours: Optional[float]
+    work_hours: Optional[float]
+    billing_type: str
+
+    timelog_total: float
+    difference: float
+
+    assignee: Optional[UserBase]     = None
+    single_owner: Optional[UserBase] = None
+    creator: Optional[UserBase]      = None
+
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+    team_name: Optional[str] = None
+
+    owners: List[UserBase]    = Field(default_factory=list)
+    assignees: List[UserBase] = Field(default_factory=list)
+
+    @model_validator(mode='before')
+    @classmethod
+    def _resolve_team_name(cls, values: any) -> any:
+        if hasattr(values, 'associated_team') and values.associated_team is not None:
+            
+            object.__setattr__ if hasattr(values, '__dict__') else None
+            try:
+                values.__dict__['team_name'] = values.associated_team.name
+            except Exception:
+                pass
+        return values
 
 class TaskListResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     total: int
     items: List[TaskResponse]

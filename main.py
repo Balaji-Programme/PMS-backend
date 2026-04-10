@@ -20,22 +20,24 @@ if not os.path.exists("uploads"):
 
 IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
-# Only run DDL sync in non-production (use Alembic migrations in production)
-if not IS_PRODUCTION:
-    Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if not IS_PRODUCTION:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    yield
+    await engine.dispose()
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    # Disable docs in production to avoid leaking API schema
-    docs_url=None if IS_PRODUCTION else "/docs",
-    redoc_url=None if IS_PRODUCTION else "/redoc",
-    openapi_url=f"{settings.API_V1_STR}/openapi.json" if not IS_PRODUCTION else None,
+    title    = settings.PROJECT_NAME,
+    version  = settings.VERSION,
+    lifespan = lifespan,
+    docs_url    = None if IS_PRODUCTION else "/docs",
+    redoc_url   = None if IS_PRODUCTION else "/redoc",
+    openapi_url = f"{settings.API_V1_STR}/openapi.json" if not IS_PRODUCTION else None,
 )
 
 add_exception_handlers(app)
-
-# ── Middleware stack (order matters — applied bottom-up) ──────────────────────
 
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
@@ -53,7 +55,6 @@ class ForceHTTPSMiddleware:
 
 app.add_middleware(ForceHTTPSMiddleware)
 
-# GZip compress all responses ≥ 1 KB (JSON compresses 70-90%)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

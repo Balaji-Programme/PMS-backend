@@ -1,48 +1,58 @@
-from pydantic import BaseModel
-from typing import Optional
+from __future__ import annotations
+
 from datetime import date
-from .masters import MasterResponse
-from .project import ProjectBase
+from typing import List, Optional
 
-class MilestoneBase(BaseModel):
-    title: str
+from pydantic import BaseModel, ConfigDict, Field
+from app.schemas.user import UserBase
+
+class MilestoneCreate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    milestone_name: str = Field(..., min_length=1)
     description: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    
+    project_id: Optional[int] = None
+    owner_id: Optional[int]   = None
 
-class MilestoneCreate(MilestoneBase):
-    project_id: int
-    owner_email: str | None = None
-    flags: str | None = None
-    tags: str | None = None
+    status: Optional[str] = None
+    flags: Optional[str]  = None
+    tags: Optional[str]   = None
+
+    start_date: Optional[date] = None
+    end_date: Optional[date]   = None
+    completion_percentage: Optional[int] = 0
 
 class MilestoneUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    start_date: date | None = None
-    end_date: date | None = None
-    project_id: int | None = None
-    owner_email: str | None = None
-    flags: str | None = None
-    tags: str | None = None
+    model_config = ConfigDict(from_attributes=True)
 
-class MilestoneOwnerResponse(BaseModel):
-    id: int
-    first_name: str
-    last_name: str
+    milestone_name: Optional[str] = None
+    description: Optional[str]    = None
+    owner_id: Optional[int]       = None
+    status: Optional[str]         = None
+    flags: Optional[str]          = None
+    tags: Optional[str]           = None
+    start_date: Optional[date]    = None
+    end_date: Optional[date]      = None
+    completion_percentage: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+class MilestoneResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
-class MilestoneResponse(MilestoneBase):
     id: int
     public_id: str
-    project_id: int | None = None
-    owner_email: str | None = None
-    flags: str | None = None
-    tags: str | None = None
+    milestone_name: str
+    description: Optional[str]
 
-    project: ProjectBase | None = None
-    owner: MilestoneOwnerResponse | None = None
+    project_id: Optional[int]
+    owner_id: Optional[int]
 
-    model_config = {"from_attributes": True}
+    status: Optional[str]
+    flags: Optional[str]
+    tags: Optional[str]
+
+    start_date: Optional[date]
+    end_date: Optional[date]
+    completion_percentage: Optional[int]
+
+    owner: Optional[UserBase] = None

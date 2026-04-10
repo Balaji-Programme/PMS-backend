@@ -1,63 +1,95 @@
-from sqlalchemy import Column, Integer, String, Date, Text, ForeignKey, Float, Table, Boolean, Numeric, DateTime
+from __future__ import annotations
+
+import enum
+from datetime import date, datetime
+from typing import List, Optional
+
+from sqlalchemy import (
+    Boolean, Column, Date, DateTime, Enum as SAEnum, ForeignKey,
+    Integer, Numeric, String, Text, UniqueConstraint
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-from sqlalchemy import event
-from sqlalchemy.orm.attributes import get_history
+
 from app.core.database import Base, AuditMixin
 
-project_users = Table(
-    "project_users",
-    Base.metadata,
-    Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("project_id", Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
-    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-    Column("user_email", String(255), nullable=True),
-    Column("role_id", Integer, ForeignKey("roles.id", ondelete="SET NULL"), nullable=True),
-    Column("is_processed", Boolean, default=False),
-    Column("created_at", DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False),
-    Column("updated_at", DateTime(timezone=True), default=None, onupdate=func.now(), nullable=True),
-    Column("is_active", Boolean, default=True, nullable=False),
-    Column("is_deleted", Boolean, default=False, nullable=False)
-)
+class BillingModel(str, enum.Enum):
+    TM = "T&M"
+    FIXED = "FixedMonthly"
+    MILESTONE = "Milestone"
+
+class ProjectType(str, enum.Enum):
+    INTERNAL = "internal"
+    EXTERNAL = "external"
+
+class ProjectMember(Base):
+    __tablename__ = "project_members"
+
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[int]    = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+
+    project_profile: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    portal_profile: Mapped[Optional[str]]  = mapped_column(String(100), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    user: Mapped["User"] = relationship(lazy="selectin")
+    project: Mapped["Project"] = relationship(back_populates="team_members", lazy="selectin")
 
 class Project(AuditMixin, Base):
     __tablename__ = "projects"
 
-    id = Column(Integer, primary_key=True, index=True)
-    public_id = Column(String(50), unique=True, index=True, nullable=False)
-    name = Column(String(255), index=True, nullable=False)
-    description = Column(Text, nullable=True)
-    client = Column(String(255), nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id_sync: Mapped[str] = mapped_column(String(100), unique=True, index=True) 
 
-    manager_email = Column(String(255), ForeignKey("users.email"), nullable=True)
-    created_by_email = Column(String(255), ForeignKey("users.email", ondelete="SET NULL"), nullable=True)
+    public_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
 
-    status_id = Column(Integer, ForeignKey("statuses.id"), nullable=True)
-    previous_status = Column(Integer, ForeignKey("statuses.id", ondelete="SET NULL"), nullable=True)
-    priority_id = Column(Integer, ForeignKey("priorities.id"), nullable=True)
+    account_name: Mapped[str]  = mapped_column(String(255))
+    project_name: Mapped[str]  = mapped_column(String(255), index=True)
+    customer_name: Mapped[str] = mapped_column(String(255))
+    client_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    
+    billing_model: Mapped[BillingModel]   = mapped_column(SAEnum(BillingModel), nullable=False)
+    project_type: Mapped[ProjectType]     = mapped_column(SAEnum(ProjectType), nullable=False)
+    project_status_external: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    
+    expected_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    expected_end_date: Mapped[Optional[date]]   = mapped_column(Date, nullable=True)
 
-    start_date = Column(Date, nullable=True)
-    end_date = Column(Date, nullable=True)
-    estimated_hours = Column(Numeric(10, 2), nullable=True)
+    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    project_manager_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    delivery_head_id: Mapped[Optional[int]]   = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    template_id: Mapped[Optional[int]]        = mapped_column(ForeignKey("project_templates.id", ondelete="SET NULL"), nullable=True)
 
-    actual_start_date = Column(Date, nullable=True)
-    actual_end_date = Column(Date, nullable=True)
-    actual_hours = Column(Numeric(10, 2), nullable=True, default=0)
+    status: Mapped[str]   = mapped_column(String(50), default="Active")
+    priority: Mapped[str] = mapped_column(String(20), default="Medium")
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    estimated_hours: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0)
+    actual_hours: Mapped[float]    = mapped_column(Numeric(10, 2), default=0.0)
+    
+    actual_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    actual_end_date: Mapped[Optional[date]]   = mapped_column(Date, nullable=True)
 
-    is_archived = Column(Boolean, default=False, nullable=False)
-    is_template = Column(Boolean, default=False, nullable=False)
-    is_group = Column(Boolean, default=False, nullable=False)
-    is_processed = Column(Boolean, default=False)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_template: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_group: Mapped[bool]    = mapped_column(Boolean, default=False)
+    is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    manager = relationship("User", foreign_keys=[manager_email], lazy="joined")
-    creator = relationship("User", foreign_keys=[created_by_email], lazy="joined")
-    status = relationship("Status", foreign_keys=[status_id], lazy="joined")
-    previous_status_rel = relationship("Status", foreign_keys=[previous_status], lazy="joined")
-    priority = relationship("Priority", lazy="joined")
+    project_manager = relationship("User", foreign_keys=[project_manager_id], lazy="selectin")
+    delivery_head   = relationship("User", foreign_keys=[delivery_head_id], lazy="selectin")
+    owner           = relationship("User", foreign_keys=[owner_id], lazy="selectin")
 
-    users = relationship("User", secondary="project_users", back_populates="projects")
-    tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
-    issues = relationship("Issue", back_populates="project", cascade="all, delete-orphan")
-    documents = relationship("Document", back_populates="project", cascade="all, delete-orphan")
-    milestones = relationship("Milestone", back_populates="project", cascade="all, delete-orphan")
-    task_lists = relationship("TaskList", back_populates="project", cascade="all, delete-orphan")
+    source_template = relationship("ProjectTemplate", foreign_keys=[template_id], lazy="selectin")
+
+    team_members: Mapped[List["ProjectMember"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    tasks: Mapped[List["Task"]] = relationship("Task", back_populates="project", cascade="all, delete-orphan", lazy="selectin")
+    issues: Mapped[List["Issue"]] = relationship("Issue", back_populates="project", cascade="all, delete-orphan", lazy="selectin")
+    milestones: Mapped[List["Milestone"]] = relationship("Milestone", back_populates="project", cascade="all, delete-orphan", lazy="selectin")
+    timelogs: Mapped[List["TimeLog"]] = relationship("TimeLog", back_populates="project", cascade="all, delete-orphan", lazy="selectin")
+    task_lists: Mapped[List["TaskList"]] = relationship("TaskList", back_populates="project", cascade="all, delete-orphan", lazy="selectin")
+    documents: Mapped[List["Document"]] = relationship("Document", back_populates="project", cascade="all, delete-orphan", lazy="selectin")

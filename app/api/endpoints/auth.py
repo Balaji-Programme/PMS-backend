@@ -1,18 +1,17 @@
-import httpx
+from __future__ import annotations
+
 import logging
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+import httpx
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token, get_current_user
 from app.models.user import User
-from app.schemas.auth import (
-    MSCallbackRequest,
-    TokenResponse,
-)
+from app.schemas.auth import MSCallbackRequest, TokenResponse
 from app.services.user_service import upsert_o365_user
 
 router = APIRouter()
@@ -25,22 +24,21 @@ def _build_token_response(user: User) -> TokenResponse:
     )
     role_data = {"id": user.role.id, "name": user.role.name} if user.role else None
     return TokenResponse(
-        access_token=access_token,
-        token_type="bearer",
-        user_id=user.id,
-        public_id=user.public_id,
-        email=user.email,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        display_name=user.display_name,
-        role=role_data,
-        is_external=user.is_external,
-        is_synced=user.is_synced,
+        access_token = access_token,
+        token_type   = "bearer",
+        user_id      = user.id,
+        public_id    = user.public_id,
+        email        = user.email,
+        first_name   = user.first_name,
+        last_name    = user.last_name,
+        display_name = user.display_name,
+        role         = role_data,
+        is_external  = user.is_external,
+        is_synced    = user.is_synced,
     )
 
 @router.post("/redirect", response_model=TokenResponse)
-async def ms_callback(payload: MSCallbackRequest, db: Session = Depends(get_db)):
-
+async def ms_callback(payload: MSCallbackRequest, db: AsyncSession = Depends(get_db)):
     if not all([settings.AZURE_TENANT_ID, settings.AZURE_CLIENT_ID, settings.AZURE_CLIENT_SECRET]):
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
@@ -53,26 +51,22 @@ async def ms_callback(payload: MSCallbackRequest, db: Session = Depends(get_db))
             resp = await client.post(
                 token_url,
                 data={
-                    "grant_type": "authorization_code",
-                    "code": payload.code,
-                    "redirect_uri": payload.redirect_uri,
-                    "client_id": settings.AZURE_CLIENT_ID,
+                    "grant_type":    "authorization_code",
+                    "code":          payload.code,
+                    "redirect_uri":  payload.redirect_uri,
+                    "client_id":     settings.AZURE_CLIENT_ID,
                     "client_secret": settings.AZURE_CLIENT_SECRET,
-                    "scope": "openid profile email User.Read",
+                    "scope":         "openid profile email User.Read",
                 },
                 timeout=15.0,
             )
             resp.raise_for_status()
             ms_tokens = resp.json()
     except httpx.HTTPStatusError as exc:
-        error_detail = exc.response.text
-        logger.error(f"MS token exchange failed: {error_detail}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Microsoft rejected the token exchange: {error_detail}"
-        )
+        logger.error("MS token exchange failed: %s", exc.response.text)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Microsoft rejected the token exchange: {exc.response.text}")
     except httpx.HTTPError as exc:
-        logger.error(f"MS token exchange network error: {exc}")
+        logger.error("MS token exchange network error: %s", exc)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to reach Microsoft.")
 
     try:
@@ -85,16 +79,16 @@ async def ms_callback(payload: MSCallbackRequest, db: Session = Depends(get_db))
             graph_resp.raise_for_status()
             ms_user = graph_resp.json()
     except httpx.HTTPError as exc:
-        logger.error(f"MS Graph fetch failed: {exc}")
+        logger.error("MS Graph fetch failed: %s", exc)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to fetch profile from Microsoft.")
 
-    user = upsert_o365_user(
-        db=db,
-        o365_id=ms_user.get("id"),
-        email=ms_user.get("mail") or ms_user.get("userPrincipalName"),
-        first_name=ms_user.get("givenName", ""),
-        last_name=ms_user.get("surname", ""),
-        display_name=ms_user.get("displayName"),
+    user = await upsert_o365_user(
+        db           = db,
+        o365_id      = ms_user.get("id"),
+        email        = ms_user.get("mail") or ms_user.get("userPrincipalName"),
+        first_name   = ms_user.get("givenName", ""),
+        last_name    = ms_user.get("surname", ""),
+        display_name = ms_user.get("displayName"),
     )
 
     if user.is_deleted or not user.is_active:
@@ -103,18 +97,15 @@ async def ms_callback(payload: MSCallbackRequest, db: Session = Depends(get_db))
     return _build_token_response(user)
 
 @router.get("/me")
-def get_current_user_profile(
-    current_user: User = Depends(get_current_user),
-):
-
+async def get_current_user_profile(current_user: User = Depends(get_current_user)):
     return {
-        "id": current_user.id,
-        "public_id": current_user.public_id,
-        "email": current_user.email,
-        "first_name": current_user.first_name,
-        "last_name": current_user.last_name,
+        "id":           current_user.id,
+        "public_id":    current_user.public_id,
+        "email":        current_user.email,
+        "first_name":   current_user.first_name,
+        "last_name":    current_user.last_name,
         "display_name": current_user.display_name,
-        "role": {"id": current_user.role.id, "name": current_user.role.name} if current_user.role else None,
-        "is_external": current_user.is_external,
-        "is_synced": current_user.is_synced,
+        "role":         {"id": current_user.role.id, "name": current_user.role.name} if current_user.role else None,
+        "is_external":  current_user.is_external,
+        "is_synced":    current_user.is_synced,
     }

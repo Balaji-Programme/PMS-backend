@@ -1,52 +1,61 @@
-from pydantic import BaseModel
-from typing import Optional
-import datetime
-from .user import UserBase
-from .task import TaskBase
-from .project import ProjectBase
-from .issue import IssueBase
+from __future__ import annotations
 
-class TimeLogBase(BaseModel):
-    date: datetime.date
-    hours: float
-    description: Optional[str] = None
+from datetime import date
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+from app.schemas.user import UserBase
+
+class TimeLogCreate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     log_title: Optional[str] = None
+    
+    project_id: Optional[int] = None
+    task_id: Optional[int]    = None
+    issue_id: Optional[int]   = None
+
+    date: date
+    daily_log_hours: float
+    time_period: Optional[str] = None
+    notes: Optional[str] = None
+
     billing_type: Optional[str] = "Billable"
     approval_status: Optional[str] = "Pending"
     general_log: Optional[bool] = False
 
-class TimeLogCreate(TimeLogBase):
-    user_email: Optional[str] = None
-    project_id: Optional[int] = None
-    task_id: Optional[int] = None
-    issue_id: Optional[int] = None
-
-class TimeLogBulkCreate(BaseModel):
-    logs: list[TimeLogCreate]
-
 class TimeLogUpdate(BaseModel):
-    date: Optional[datetime.date] = None
-    hours: Optional[float] = None
-    description: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
     log_title: Optional[str] = None
+    date: Optional[date] = None
+    daily_log_hours: Optional[float] = None
+    time_period: Optional[str] = None
+    notes: Optional[str] = None
     billing_type: Optional[str] = None
     approval_status: Optional[str] = None
-    general_log: Optional[bool] = None
-    user_email: Optional[str] = None
-    project_id: Optional[int] = None
-    task_id: Optional[int] = None
-    issue_id: Optional[int] = None
 
-class TimeLogResponse(TimeLogBase):
+class TimeLogResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
-    user_email: str
-    project_id: Optional[int] = None
-    task_id: Optional[int] = None
-    issue_id: Optional[int] = None
+    log_title: Optional[str]
+    
+    user_id: int
+    created_by_id: Optional[int]
+    
+    project_id: Optional[int]
+    task_id: Optional[int]
+    issue_id: Optional[int]
+
+    date: date
+    daily_log_hours: float
+    time_period: Optional[str]
+    notes: Optional[str]
+
+    billing_type: str
+    approval_status: str
+    general_log: bool
 
     user: Optional[UserBase] = None
-    project: Optional[ProjectBase] = None
-    task: Optional[TaskBase] = None
-    issue: Optional[IssueBase] = None
-
-    model_config = {"from_attributes": True}
+    created_by: Optional[UserBase] = None

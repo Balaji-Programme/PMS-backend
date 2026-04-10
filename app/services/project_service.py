@@ -1,263 +1,134 @@
+from __future__ import annotations
+
 from typing import List, Optional
-from sqlalchemy.orm import Session, joinedload
-from app.models.project import Project
+
+from sqlalchemy import func, select, delete as sa_delete
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models.project import Project, ProjectMember
 from app.models.user import User
-from app.schemas.project import ProjectCreate, ProjectUpdate
+from app.models.template import ProjectTemplate, TemplateTask
+from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectSyncUpdate
 from app.utils.ids import generate_public_id
 from app.utils.audit_utils import capture_audit_details, write_audit
 
-def get_project(db: Session, project_id: int):
-    return db.query(Project).options(
-        joinedload(Project.manager),
-        joinedload(Project.creator),
-        joinedload(Project.status),
-        joinedload(Project.priority),
-        joinedload(Project.users)
-    ).filter(Project.id == project_id).first()
+def _project_query(extra_options=()):
+    return (
+        select(Project)
+        .options(
+            selectinload(Project.owner),
+            selectinload(Project.project_manager),
+            selectinload(Project.delivery_head),
+            selectinload(Project.source_template),
+            selectinload(Project.team_members).selectinload(ProjectMember.user),
+            *extra_options,
+        )
+    )
 
-def get_projects(
-    db: Session,
+async def get_project(db: AsyncSession, project_id: int) -> Optional[Project]:
+    result = await db.execute(_project_query().where(Project.id == project_id))
+    return result.scalar_one_or_none()
+
+async def get_projects(
+    db: AsyncSession,
     skip: int = 0,
     limit: int = 100,
-    status_ids: Optional[List[int]] = None,
-    priority_ids: Optional[List[int]] = None,
-    manager_emails: Optional[List[str]] = None,
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
     is_archived: Optional[bool] = None,
     is_template: Optional[bool] = None,
     include_all: bool = False,
     current_user=None,
-    **kwargs
-):
-    from app.models.project import project_users as pu_table
-    query = db.query(Project).options(
-        joinedload(Project.manager),
-        joinedload(Project.creator),
-        joinedload(Project.status),
-        joinedload(Project.priority)
-    )
+) -> List[Project]:
+    stmt = _project_query()
 
     if current_user is not None:
-        query = query.join(pu_table, pu_table.c.project_id == Project.id).filter(
-            pu_table.c.user_id == current_user.id
+        stmt = stmt.join(ProjectMember, ProjectMember.project_id == Project.id).where(
+            ProjectMember.user_id == current_user.id
         )
 
     if not include_all:
         if is_archived is not None:
-            query = query.filter(Project.is_archived == is_archived)
+            stmt = stmt.where(Project.is_archived == is_archived)
         if is_template is not None:
-            query = query.filter(Project.is_template == is_template)
+            stmt = stmt.where(Project.is_template == is_template)
 
-    if status_ids:
-        query = query.filter(Project.status_id.in_(status_ids))
-    if priority_ids:
-        query = query.filter(Project.priority_id.in_(priority_ids))
-    if manager_emails:
-        query = query.filter(Project.manager_email.in_(manager_emails))
+    if status:
+        stmt = stmt.where(Project.status == status)
+    if priority:
+        stmt = stmt.where(Project.priority == priority)
 
-    return query.offset(skip).limit(limit).all()
+    result = await db.execute(stmt.offset(skip).limit(limit))
+    return result.scalars().unique().all()
 
-def create_project(db: Session, project: ProjectCreate, actor_id: str):
+async def create_project(
+    db: AsyncSession,
+    project: ProjectCreate,
+    actor_id: str,
+) -> Project:
     public_id = generate_public_id("PRJ-")
+
     db_project = Project(
-        public_id=public_id,
-        name=project.name,
-        description=project.description,
-        client=project.client,
-        manager_email=project.manager_email,
-        status_id=project.status_id,
-        priority_id=project.priority_id,
-        start_date=project.start_date,
-        end_date=project.end_date,
-        estimated_hours=project.estimated_hours,
-        is_archived=project.is_archived,
-        is_template=project.is_template,
-        is_group=project.is_group
+        public_id               = public_id,
+        project_name            = project.project_name,
+        account_name            = project.account_name,
+        customer_name           = project.customer_name,
+        client_name             = project.client_name,
+        project_id_sync         = project.project_id_sync,
+        description             = project.description,
+        billing_model           = project.billing_model,
+        project_type            = project.project_type,
+        project_status_external = project.project_status_external,
+        project_manager_id      = project.project_manager_id,
+        delivery_head_id        = project.delivery_head_id,
+        owner_id                = project.owner_id,
+        template_id             = project.template_id,
+        status                  = project.status,
+        priority                = project.priority,
+        expected_start_date     = project.expected_start_date,
+        expected_end_date       = project.expected_end_date,
+        estimated_hours         = project.estimated_hours,
+        actual_start_date       = project.actual_start_date,
+        actual_end_date         = project.actual_end_date,
+        actual_hours            = project.actual_hours,
+        is_archived             = project.is_archived,
+        is_template             = project.is_template,
+        is_group                = project.is_group,
     )
-    if hasattr(project, 'user_emails') and project.user_emails:
-        users = db.query(User).filter(User.email.in_(project.user_emails)).all()
-        db_project.users = users
-
+    
     db.add(db_project)
-    db.flush()
+    await db.flush()
 
-    write_audit(
-        db,
-        actor_id,
-        "CREATE",
-        "projects",
-        db_project.id,
-        db_project.id,
-        [{"field_name": "name", "old_value": None, "new_value": project.name}]
+    if project.template_id:
+        await clone_from_template(db, db_project.id, project.template_id)
+
+    if project.user_emails:
+        users_result = await db.execute(select(User).where(User.email.in_(project.user_emails)))
+        for u in users_result.scalars().all():
+            db.add(ProjectMember(project_id=db_project.id, user_id=u.id, project_profile="Member", portal_profile="User"))
+
+    await db.commit()
+    return await get_project(db, db_project.id)
+
+async def clone_from_template(
+    db: AsyncSession,
+    project_id: int,
+    template_id: int,
+) -> None:
+    from app.models.task import Task
+    tmpl_tasks_result = await db.execute(
+        select(TemplateTask)
+        .where(TemplateTask.template_id == template_id)
+        .order_by(TemplateTask.order_index)
     )
-
-    db.commit()
-    db.refresh(db_project)
-
-    return get_project(db, db_project.id)
-
-def update_project(db: Session, project_id: int, project_update: ProjectUpdate, actor_id: str):
-    db_project = db.query(Project).filter(Project.id == project_id).first()
-    if not db_project:
-        return None
-
-    update_data = project_update.model_dump(exclude_unset=True)
-    if not update_data:
-        return db_project
-
-    if "status_id" in update_data and update_data["status_id"] != db_project.status_id:
-        update_data["previous_status"] = db_project.status_id
-
-    changes = capture_audit_details(db_project, update_data)
-
-    for key, value in update_data.items():
-        setattr(db_project, key, value)
-
-    if hasattr(project_update, 'user_emails') and project_update.user_emails is not None:
-        users = db.query(User).filter(User.email.in_(project_update.user_emails)).all()
-        db_project.users = users
-
-    if actor_id:
-        write_audit(db, actor_id, "UPDATE", "projects", project_id, project_id, changes)
-
-    db.commit()
-    db.refresh(db_project)
-
-    return get_project(db, db_project.id)
-
-def delete_project(db: Session, project_id: int, actor_id: str):
-    db_project = db.query(Project).filter(Project.id == project_id).first()
-    if db_project:
-        db.delete(db_project)
-        if actor_id:
-            write_audit(db, actor_id, "DELETE", "projects", project_id, project_id, [])
-        db.commit()
-        return True
-    return False
-
-def add_user_to_project(db: Session, project_id: int, user_id: str, user_email: str, display_name: Optional[str] = None, role_id: Optional[int] = None, actor_id: Optional[str] = None):
-
-    from sqlalchemy import insert, select
-    from app.models.project import project_users
-    from app.models.user import User
-    from app.models.roles import Role
-    from app.utils.ids import generate_public_id
-
-    db_project = db.query(Project).filter(Project.id == project_id).first()
-    if not db_project:
-        return False
-
-    db_user = db.query(User).filter(User.o365_id == user_id).first()
-    if not db_user:
-        db_user = db.query(User).filter(User.email == user_email).first()
-        if db_user:
-            db_user.o365_id = user_id
-            db.commit()
-        else:
-            public_id = generate_public_id("USR-")
-            employee_id = generate_public_id("EMP-")
-
-            name_parts = (display_name or "New User").split(" ", 1)
-            first_name = name_parts[0]
-            last_name = name_parts[1] if len(name_parts) > 1 else "User"
-
-            db_user = User(
-                public_id=public_id,
-                employee_id=employee_id,
-                o365_id=user_id,
-                email=user_email,
-                username=user_email.split("@")[0],
-                first_name=first_name,
-                last_name=last_name,
-                display_name=display_name or f"{first_name} {last_name}",
-                is_synced=True
-            )
-            db.add(db_user)
-            db.commit()
-            db.refresh(db_user)
-
-    existing = db.execute(
-        select(project_users).where(
-            project_users.c.project_id == project_id,
-            project_users.c.user_id == db_user.id,
-        )
-    ).first()
-
-    if existing:
-        return True
-
-    db.execute(
-        insert(project_users).values(
-            project_id=project_id,
-            user_id=db_user.id,
-            user_email=user_email,
-            role_id=role_id,
-        )
-    )
-
-    effective_actor_id = actor_id or "system"
-
-    actor = db.query(User).filter(
-        (User.o365_id == actor_id) if actor_id else (User.id == -1)
-    ).first()
-    actor_name = actor.display_name if actor else "Admin"
-
-    role_label = db.query(Role).filter(Role.id == role_id).first().name if role_id else "Member"
-    write_audit(
-        db,
-        effective_actor_id,
-        "ASSIGN_TO_PROJECT",
-        "projects",
-        project_id,
-        db_user.id,
-        [{"field_name": "project_users", "old_value": None, "new_value": f"Added {user_email} as {role_label} by {actor_name}"}]
-    )
-
-    db.commit()
-    return True
-
-def remove_user_from_project(db: Session, project_id: int, user_email: str, actor_id: Optional[str] = None):
-
-    from sqlalchemy import delete as sa_delete
-    from app.models.project import project_users
-    from app.models.user import User
-
-    db_user = db.query(User).filter(User.email == user_email).first()
-    if not db_user:
-        return False  # User doesn't exist at all
-
-    result = db.execute(
-        sa_delete(project_users).where(
-            project_users.c.project_id == project_id,
-            project_users.c.user_id == db_user.id,
-        )
-    )
-    if result.rowcount > 0:
-        effective_actor_id = actor_id or "system"
-        write_audit(
-            db,
-            effective_actor_id,
-            "REMOVE_FROM_PROJECT",
-            "projects",
-            project_id,
-            db_user.id,
-            [{"field_name": "project_users", "old_value": user_email, "new_value": None}]
-        )
-    db.commit()
-    return result.rowcount > 0
-
-def search_projects(db: Session, query: str, limit: int = 20):
-    if not query:
-        return []
-    q = f"%{query}%"
-    from sqlalchemy import or_
-    return db.query(Project).options(
-        joinedload(Project.manager),
-        joinedload(Project.status),
-        joinedload(Project.priority)
-    ).filter(
-        or_(
-            Project.name.ilike(q),
-            Project.public_id.ilike(q),
-            Project.client.ilike(q)
-        )
-    ).limit(limit).all()
+    for tt in tmpl_tasks_result.scalars().all():
+        db.add(Task(
+            public_id       = generate_public_id("TSK-"),
+            task_name       = tt.title,
+            description     = tt.description,
+            project_id      = project_id,
+            estimated_hours = tt.estimated_hours,
+            priority        = "Medium",
+        ))
+    await db.flush()

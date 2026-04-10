@@ -19,6 +19,12 @@ class Settings(BaseSettings):
         encoded_password = urllib.parse.quote_plus(self.MYSQL_PASSWORD)
         return f"mysql+pymysql://{self.MYSQL_USER}:{encoded_password}@{self.MYSQL_SERVER}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
 
+    @property
+    def ASYNC_DATABASE_URL(self) -> str:
+        import urllib.parse
+        encoded_password = urllib.parse.quote_plus(self.MYSQL_PASSWORD)
+        return f"mysql+aiomysql://{self.MYSQL_USER}:{encoded_password}@{self.MYSQL_SERVER}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
+
     SECRET_KEY: str = Field(alias="SECRET_KEY")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480

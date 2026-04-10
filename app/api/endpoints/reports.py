@@ -17,7 +17,7 @@ router = APIRouter(dependencies=[Depends(allow_authenticated)])
 
 @router.get("/summary")
 def get_report_summary(db: Session = Depends(get_db)):
-    # ── Projects: total + active in 1 query ─────────────────────────────────
+    
     proj_row = db.query(
         func.count(Project.id).label("total"),
         func.sum(
@@ -28,7 +28,6 @@ def get_report_summary(db: Session = Depends(get_db)):
         ).label("active")
     ).outerjoin(Status, Project.status_id == Status.id).one()
 
-    # ── Tasks: total + completed in 1 query ──────────────────────────────────
     task_row = db.query(
         func.count(Task.id).label("total"),
         func.sum(
@@ -39,7 +38,6 @@ def get_report_summary(db: Session = Depends(get_db)):
         ).label("completed")
     ).outerjoin(Status, Task.status_id == Status.id).one()
 
-    # ── Issues: total + open in 1 query ──────────────────────────────────────
     issue_row = db.query(
         func.count(Issue.id).label("total"),
         func.sum(
@@ -73,7 +71,6 @@ def get_project_report(project_id: int, db: Session = Depends(get_db)):
     if not project:
         return {"error": "Project not found"}
 
-    # ── Task counts by status ─────────────────────────────────────────────────
     task_rows = (
         db.query(Status.name, func.count(Task.id))
         .join(Status, Task.status_id == Status.id)
@@ -85,7 +82,6 @@ def get_project_report(project_id: int, db: Session = Depends(get_db)):
     total_tasks      = sum(r["count"] for r in tasks_by_status)
     completed_tasks  = sum(r["count"] for r in tasks_by_status if r["status"] == "Completed")
 
-    # ── Issue counts by priority ──────────────────────────────────────────────
     issue_rows = (
         db.query(Priority.name, func.count(Issue.id))
         .join(Priority, Issue.priority_id == Priority.id)
@@ -103,7 +99,6 @@ def get_project_report(project_id: int, db: Session = Depends(get_db)):
         .scalar() or 0
     )
 
-    # ── Hours by user — single aggregation query, then 1 batch user lookup ───
     hours_rows = (
         db.query(TimeLog.user_email, func.sum(TimeLog.hours).label("total_hours"))
         .filter(TimeLog.project_id == project_id)
@@ -113,7 +108,6 @@ def get_project_report(project_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    # Batch-fetch all relevant users in ONE query (fixes N+1)
     emails = [row.user_email for row in hours_rows]
     users_map = {}
     if emails:
@@ -130,7 +124,6 @@ def get_project_report(project_id: int, db: Session = Depends(get_db)):
     ]
     total_hours = sum(r["hours"] for r in hours_by_user)
 
-    # ── Milestones ─────────────────────────────────────────────────────────────
     total_milestones = db.query(func.count(Milestone.id)).filter(Milestone.project_id == project_id).scalar() or 0
 
     return {
@@ -146,7 +139,6 @@ def get_project_report(project_id: int, db: Session = Depends(get_db)):
         "issues_by_priority": issues_by_priority,
         "hours_by_user":      hours_by_user,
     }
-
 
 @router.get("/export/csv")
 def export_csv_report(report_type: str = "projects", db: Session = Depends(get_db)):
@@ -177,5 +169,4 @@ def export_csv_report(report_type: str = "projects", db: Session = Depends(get_d
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={report_type}_report.csv"}
     )
-
 

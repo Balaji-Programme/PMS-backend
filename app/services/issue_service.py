@@ -1,162 +1,171 @@
+from __future__ import annotations
+
 from typing import List, Optional
-from sqlalchemy.orm import Session, joinedload
+
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from app.models.issue import Issue
 from app.models.document import Document
 from app.models.user import User
 from app.schemas.issue import IssueCreate, IssueUpdate
 from app.utils.ids import generate_public_id
-from app.utils.audit_utils import write_audit, capture_audit_details
+from app.utils.audit_utils import capture_audit_details, write_audit
 
-def get_issue(db: Session, issue_id: int):
-    return db.query(Issue).options(
-        joinedload(Issue.project),
-        joinedload(Issue.reporter),
-        joinedload(Issue.assignee),
-        joinedload(Issue.assignees),
-        joinedload(Issue.followers),
-        joinedload(Issue.status),
-        joinedload(Issue.priority),
-        joinedload(Issue.documents)
-    ).filter(Issue.id == issue_id).first()
+def _issue_query():
+    return (
+        select(Issue)
+        .options(
+            selectinload(Issue.project),
+            selectinload(Issue.reporter),
+            selectinload(Issue.assignee),
+            selectinload(Issue.assignees),
+            selectinload(Issue.followers),
+            selectinload(Issue.status),
+            selectinload(Issue.priority),
+            selectinload(Issue.documents),
+        )
+    )
 
-def get_issues(
-    db: Session,
+async def get_issue(db: AsyncSession, issue_id: int) -> Optional[Issue]:
+    result = await db.execute(_issue_query().where(Issue.id == issue_id))
+    return result.scalar_one_or_none()
+
+async def get_issues(
+    db: AsyncSession,
     skip: int = 0,
     limit: int = 100,
-    project_id: int = None,
+    project_id: Optional[int] = None,
     status_ids: Optional[List[int]] = None,
     priority_ids: Optional[List[int]] = None,
-    assignee_emails: Optional[List[str]] = None
-):
-    query = db.query(Issue).options(
-        joinedload(Issue.project),
-        joinedload(Issue.reporter),
-        joinedload(Issue.assignee),
-        joinedload(Issue.assignees),
-        joinedload(Issue.followers),
-        joinedload(Issue.status),
-        joinedload(Issue.priority),
-        joinedload(Issue.documents)
-    )
+    assignee_emails: Optional[List[str]] = None,
+) -> dict:
+    stmt = _issue_query()
+
     if project_id is not None:
-        query = query.filter(Issue.project_id == project_id)
+        stmt = stmt.where(Issue.project_id == project_id)
     if status_ids:
-        query = query.filter(Issue.status_id.in_(status_ids))
+        stmt = stmt.where(Issue.status_id.in_(status_ids))
     if priority_ids:
-        query = query.filter(Issue.priority_id.in_(priority_ids))
+        stmt = stmt.where(Issue.priority_id.in_(priority_ids))
     if assignee_emails:
-        query = query.filter(Issue.assignee_email.in_(assignee_emails))
+        stmt = stmt.where(Issue.assignee_email.in_(assignee_emails))
 
-    total = query.count()
-    items = query.offset(skip).limit(limit).all()
-    return {"total": total, "items": items}
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar() or 0
+    items_result = await db.execute(stmt.offset(skip).limit(limit))
+    return {"total": total, "items": items_result.scalars().unique().all()}
 
-def create_issue(db: Session, issue: IssueCreate, actor_id: Optional[str] = None):
+async def create_issue(
+    db: AsyncSession,
+    issue: IssueCreate,
+    actor_id: Optional[str] = None,
+) -> Issue:
     public_id = generate_public_id("ISS-")
     db_issue = Issue(
-        public_id=public_id,
-        title=issue.title,
-        description=issue.description,
-        project_id=issue.project_id,
-        reporter_email=issue.reporter_email,
-        assignee_email=issue.assignee_email,
-        status_id=issue.status_id,
-        priority_id=issue.priority_id,
-        classification=issue.classification,
-        module=issue.module,
-        tags=issue.tags,
-        start_date=issue.start_date,
-        end_date=issue.end_date,
-        due_date=issue.due_date,
-        estimated_hours=issue.estimated_hours
+        public_id      = public_id,
+        title          = issue.title,
+        description    = issue.description,
+        project_id     = issue.project_id,
+        reporter_email = issue.reporter_email,
+        assignee_email = issue.assignee_email,
+        status_id      = issue.status_id,
+        priority_id    = issue.priority_id,
+        classification = issue.classification,
+        module         = issue.module,
+        tags           = issue.tags,
+        start_date     = issue.start_date,
+        end_date       = issue.end_date,
+        due_date       = issue.due_date,
+        estimated_hours = issue.estimated_hours,
     )
 
     if issue.follower_ids:
-        followers = db.query(User).filter(User.id.in_(issue.follower_ids)).all()
+        followers = (await db.execute(select(User).where(User.id.in_(issue.follower_ids)))).scalars().all()
         db_issue.followers.extend(followers)
-
-    if hasattr(issue, 'assignee_ids') and issue.assignee_ids:
-        assignees = db.query(User).filter(User.id.in_(issue.assignee_ids)).all()
+    if getattr(issue, "assignee_ids", None):
+        assignees = (await db.execute(select(User).where(User.id.in_(issue.assignee_ids)))).scalars().all()
         db_issue.assignees.extend(assignees)
-
-    if hasattr(issue, 'document_ids') and issue.document_ids:
-        docs = db.query(Document).filter(Document.id.in_(issue.document_ids)).all()
+    if getattr(issue, "document_ids", None):
+        docs = (await db.execute(select(Document).where(Document.id.in_(issue.document_ids)))).scalars().all()
         db_issue.documents.extend(docs)
 
     db.add(db_issue)
-    db.flush()
+    await db.flush()
 
-    write_audit(db, actor_id, "CREATE", "issues",
-                resource_id=issue.project_id or db_issue.id,
-                record_id=db_issue.id,
-                details=[{"field_name": "title", "old_value": None, "new_value": issue.title}])
+    await write_audit(
+        db, actor_id, "CREATE", "issues",
+        issue.project_id or db_issue.id, db_issue.id,
+        [{"field_name": "title", "old_value": None, "new_value": issue.title}],
+    )
+    await db.commit()
+    return await get_issue(db, db_issue.id)
 
-    db.commit()
-    db.refresh(db_issue)
-    return get_issue(db, db_issue.id)
-
-def update_issue(db: Session, issue_id: int, issue_update: IssueUpdate, actor_id: Optional[str] = None):
-    db_issue = db.query(Issue).filter(Issue.id == issue_id).first()
+async def update_issue(
+    db: AsyncSession,
+    issue_id: int,
+    issue_update: IssueUpdate,
+    actor_id: Optional[str] = None,
+) -> Optional[Issue]:
+    result = await db.execute(select(Issue).where(Issue.id == issue_id))
+    db_issue = result.scalar_one_or_none()
     if not db_issue:
         return None
 
-    update_data = issue_update.model_dump(exclude_unset=True, exclude={'document_ids', 'follower_ids', 'assignee_ids'})
+    update_data = issue_update.model_dump(
+        exclude_unset=True, exclude={"document_ids", "follower_ids", "assignee_ids"}
+    )
     changes = capture_audit_details(db_issue, update_data)
-
     for key, value in update_data.items():
         setattr(db_issue, key, value)
 
-    if hasattr(issue_update, 'follower_ids') and issue_update.follower_ids is not None:
-        followers = db.query(User).filter(User.id.in_(issue_update.follower_ids)).all()
-        db_issue.followers = followers
+    if issue_update.follower_ids is not None:
+        db_issue.followers = list(
+            (await db.execute(select(User).where(User.id.in_(issue_update.follower_ids)))).scalars().all()
+        )
+    if issue_update.assignee_ids is not None:
+        db_issue.assignees = list(
+            (await db.execute(select(User).where(User.id.in_(issue_update.assignee_ids)))).scalars().all()
+        )
+    if issue_update.document_ids is not None:
+        db_issue.documents = list(
+            (await db.execute(select(Document).where(Document.id.in_(issue_update.document_ids)))).scalars().all()
+        )
 
-    if hasattr(issue_update, 'assignee_ids') and issue_update.assignee_ids is not None:
-        assignees = db.query(User).filter(User.id.in_(issue_update.assignee_ids)).all()
-        db_issue.assignees = assignees
+    await write_audit(db, actor_id, "UPDATE", "issues", db_issue.project_id or issue_id, issue_id, changes)
+    await db.commit()
+    return await get_issue(db, issue_id)
 
-    if hasattr(issue_update, 'document_ids') and issue_update.document_ids is not None:
-        docs = db.query(Document).filter(Document.id.in_(issue_update.document_ids)).all()
-        db_issue.documents = docs
+async def delete_issue(
+    db: AsyncSession,
+    issue_id: int,
+    actor_id: Optional[str] = None,
+) -> bool:
+    result = await db.execute(select(Issue).where(Issue.id == issue_id))
+    db_issue = result.scalar_one_or_none()
+    if not db_issue:
+        return False
+    await write_audit(
+        db, actor_id, "DELETE", "issues",
+        db_issue.project_id or issue_id, issue_id,
+        [{"field_name": "title", "old_value": db_issue.title, "new_value": None}],
+    )
+    await db.delete(db_issue)
+    await db.commit()
+    return True
 
-    write_audit(db, actor_id, "UPDATE", "issues",
-                resource_id=db_issue.project_id or issue_id,
-                record_id=issue_id,
-                details=changes)
-
-    db.commit()
-    db.refresh(db_issue)
-    return get_issue(db, db_issue.id)
-
-def delete_issue(db: Session, issue_id: int, actor_id: Optional[str] = None):
-    db_issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    if db_issue:
-        write_audit(db, actor_id, "DELETE", "issues",
-                    resource_id=db_issue.project_id or issue_id,
-                    record_id=issue_id,
-                    details=[{"field_name": "title", "old_value": db_issue.title, "new_value": None}])
-        db.delete(db_issue)
-        db.commit()
-        return True
-    return False
-
-def search_issues(db: Session, query: str, project_id: int = None, limit: int = 20):
+async def search_issues(
+    db: AsyncSession,
+    query: str,
+    project_id: Optional[int] = None,
+    limit: int = 20,
+) -> List[Issue]:
     if not query:
         return []
     q = f"%{query}%"
-    from sqlalchemy import or_
-    query_obj = db.query(Issue).options(
-        joinedload(Issue.project),
-        joinedload(Issue.reporter),
-        joinedload(Issue.assignee),
-        joinedload(Issue.status),
-        joinedload(Issue.documents)
-    )
+    stmt = _issue_query().where(or_(Issue.title.ilike(q), Issue.public_id.ilike(q)))
     if project_id:
-        query_obj = query_obj.filter(Issue.project_id == project_id)
-
-    return query_obj.filter(
-        or_(
-            Issue.title.ilike(q),
-            Issue.public_id.ilike(q)
-        )
-    ).limit(limit).all()
+        stmt = stmt.where(Issue.project_id == project_id)
+    result = await db.execute(stmt.limit(limit))
+    return result.scalars().unique().all()

@@ -1,93 +1,102 @@
-from pydantic import BaseModel, field_validator
-from typing import Optional, List, Literal
+from __future__ import annotations
+
 from datetime import date, datetime
-from .masters import MasterResponse
-from .user import UserBase
-from .project import ProjectBase
-from .document import DocumentResponse
+from typing import List, Optional
 
-IssueClassification = Literal[
-    "None", "Security", "Crash/Hang", "Data Loss", "Performance",
-    "UI/UX Usability", "Other Bugs", "Feature (New)", "Enhancement"
-]
+from pydantic import BaseModel, ConfigDict, Field
 
-IssueStatus = Literal[
-    "Open", "In Progress", "In Review", "To Be Tested", "Re-opened", "Closed"
-]
+from app.models.issue import Severity
+from app.schemas.user import UserBase
 
-class IssueBase(BaseModel):
-    title: str
+class IssueCreate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    bug_name: str = Field(..., min_length=1)
     description: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    due_date: Optional[date] = None
-    estimated_hours: Optional[float] = 0.0
+    
+    project_id: Optional[int] = None
+    associated_team_id: Optional[int] = None
+    assignee_id: Optional[int] = None
+    reporter_id: Optional[int] = None
 
+    status: Optional[str] = None
+    severity: Optional[Severity] = None
+
+    classification: Optional[str] = "None"
     module: Optional[str] = None
     tags: Optional[str] = None
 
-    classification: Optional[IssueClassification] = "None"
+    reproducible_flag: bool = True
 
-    model_config = {"from_attributes": True}
-
-class IssueCreate(IssueBase):
-    project_id: Optional[int] = None
-    reporter_email: Optional[str] = None
-    assignee_email: Optional[str] = None
-    assignee_ids: Optional[List[int]] = []
-    follower_ids: Optional[List[int]] = []
-    status_id: Optional[int] = None
-    priority_id: Optional[int] = None
-    document_ids: Optional[List[int]] = []
-
-    @field_validator("title")
-    @classmethod
-    def title_must_not_be_empty(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Issue title must not be empty")
-        return v.strip()
-
-class IssueUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    project_id: Optional[int] = None
-    reporter_email: Optional[str] = None
-    assignee_email: Optional[str] = None
-    assignee_ids: Optional[List[int]] = None
-    follower_ids: Optional[List[int]] = None
-    status_id: Optional[int] = None
-    priority_id: Optional[int] = None
     start_date: Optional[date] = None
-    end_date: Optional[date] = None
     due_date: Optional[date] = None
     estimated_hours: Optional[float] = None
-    classification: Optional[IssueClassification] = None
+    
+    follower_emails: List[str] = Field(default_factory=list)
+    assignee_emails: List[str] = Field(default_factory=list)
+
+class IssueUpdate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    bug_name: Optional[str] = None
+    description: Optional[str] = None
+    
+    associated_team_id: Optional[int] = None
+    assignee_id: Optional[int] = None
+    reporter_id: Optional[int] = None
+
+    status: Optional[str] = None
+    severity: Optional[Severity] = None
+
+    classification: Optional[str] = None
     module: Optional[str] = None
     tags: Optional[str] = None
-    document_ids: Optional[List[int]] = []
 
-class IssueResponse(IssueBase):
+    reproducible_flag: Optional[bool] = None
+
+    start_date: Optional[date] = None
+    due_date: Optional[date] = None
+    last_closed_time: Optional[datetime] = None
+    estimated_hours: Optional[float] = None
+
+class IssueResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     public_id: str
-    project_id: Optional[int] = None
-    reporter_email: Optional[str] = None
-    assignee_email: Optional[str] = None
-    status_id: Optional[int] = None
-    priority_id: Optional[int] = None
+    bug_name: str
+    description: Optional[str]
+    
+    project_id: Optional[int]
+    associated_team_id: Optional[int]
+    assignee_id: Optional[int]
+    reporter_id: Optional[int]
+
+    status: Optional[str]
+    severity: Optional[Severity]
+
+    classification: Optional[str]
+    module: Optional[str]
+    tags: Optional[str]
+
+    reproducible_flag: bool
+
+    start_date: Optional[date]
+    due_date: Optional[date]
+    last_closed_time: Optional[datetime]
+    estimated_hours: Optional[float]
+
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    project: Optional[ProjectBase] = None
-    reporter: Optional[UserBase] = None
     assignee: Optional[UserBase] = None
-    assignees: Optional[List[UserBase]] = []
-    followers: Optional[List[UserBase]] = []
-    status: Optional[MasterResponse] = None
-    priority: Optional[MasterResponse] = None
-    documents: Optional[List[DocumentResponse]] = []
+    reporter: Optional[UserBase] = None
 
-    model_config = {"from_attributes": True}
+    followers: List[UserBase] = Field(default_factory=list)
+    assignees: List[UserBase] = Field(default_factory=list)
 
 class IssueListResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     total: int
     items: List[IssueResponse]

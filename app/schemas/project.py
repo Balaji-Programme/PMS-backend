@@ -1,117 +1,146 @@
-from pydantic import BaseModel, field_validator
-from typing import Optional, List
+from __future__ import annotations
+
 from datetime import date
-from .masters import MasterResponse
-from .user import UserBase
-from .team import TeamBase
-from .project_group import ProjectGroupResponse
+from typing import List, Optional
 
-class ProjectBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-    client: Optional[str] = None
+from pydantic import BaseModel, ConfigDict, Field
 
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    estimated_hours: Optional[float] = None
+from app.models.project import BillingModel, ProjectType
+from app.schemas.user import UserBase
+from app.schemas.masters import MasterResponse
 
-    actual_start_date: Optional[date] = None
-    actual_end_date: Optional[date] = None
-    actual_hours: Optional[float] = None
+class ProjectCreate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
-    model_config = {"from_attributes": True}
+    account_name: str       = Field(..., min_length=1)
+    project_name: str       = Field(..., min_length=1)
+    customer_name: str      = Field(..., min_length=1)
+    project_id_sync: str    = Field(..., min_length=1)
+    
+    billing_model: BillingModel
+    project_type: ProjectType
+    
+    expected_start_date: Optional[date] = None
+    expected_end_date: Optional[date]   = None
 
-class ProjectCreate(ProjectBase):
-    manager_email: Optional[str] = None
-    status_id: Optional[int] = None
-    priority_id: Optional[int] = None
-    is_archived: bool = False
-    is_template: bool = False
-    is_group: bool = False
-    user_emails: Optional[List[str]] = []
+    client_name: Optional[str]              = None
+    description: Optional[str]              = None
+    project_status_external: Optional[str]  = None
+    
+    owner_id: Optional[int]                 = None
+    project_manager_id: Optional[int]       = None
+    delivery_head_id: Optional[int]         = None
+    template_id: Optional[int]              = None
+    
+    status: Optional[str]                   = "Active"
+    priority: Optional[str]                 = "Medium"
 
-    @field_validator("name")
-    @classmethod
-    def name_must_not_be_empty(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Project name must not be empty")
-        return v.strip()
+    estimated_hours: Optional[float]        = 0.0
+    actual_hours: Optional[float]           = 0.0
+    
+    actual_start_date: Optional[date]       = None
+    actual_end_date: Optional[date]         = None
+
+    is_archived: bool                       = False
+    is_template: bool                       = False
+    is_group: bool                          = False
+
+    user_emails: List[str]                  = Field(default_factory=list)
 
 class ProjectUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    client: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    estimated_hours: Optional[float] = None
-    actual_start_date: Optional[date] = None
-    actual_end_date: Optional[date] = None
-    actual_hours: Optional[float] = None
-    manager_email: Optional[str] = None
-    status_id: Optional[int] = None
-    previous_status: Optional[int] = None
-    priority_id: Optional[int] = None
-    is_archived: Optional[bool] = None
-    is_template: Optional[bool] = None
-    is_group: Optional[bool] = None
-    user_emails: Optional[List[str]] = None
+    model_config = ConfigDict(from_attributes=True)
+
+    account_name: Optional[str]       = None
+    project_name: Optional[str]       = None
+    customer_name: Optional[str]      = None
+    client_name: Optional[str]        = None
+    
+    billing_model: Optional[BillingModel]   = None
+    project_type: Optional[ProjectType]     = None
+    project_status_external: Optional[str]  = None
+    
+    expected_start_date: Optional[date] = None
+    expected_end_date: Optional[date]   = None
+    
+    owner_id: Optional[int]                 = None
+    project_manager_id: Optional[int]       = None
+    delivery_head_id: Optional[int]         = None
+    
+    status: Optional[str]                   = None
+    priority: Optional[str]                 = None
+    description: Optional[str]              = None
+
+    estimated_hours: Optional[float]        = None
+    actual_hours: Optional[float]           = None
+    actual_start_date: Optional[date]       = None
+    actual_end_date: Optional[date]         = None
+    
+    is_archived: Optional[bool]             = None
+    is_template: Optional[bool]             = None
+    is_group: Optional[bool]                = None
+    user_emails: Optional[List[str]]        = None
+
+class ProjectSyncUpdate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    project_id_sync: Optional[str] = None
+    account_name: Optional[str]    = None
+    customer_name: Optional[str]   = None
+    project_name: Optional[str]    = None
 
 class ProjectResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     public_id: str
-    name: str
-    description: Optional[str] = None
-    client: Optional[str] = None
+    project_id_sync: str
+    account_name: str
+    project_name: str
+    customer_name: str
+    client_name: Optional[str] = None
 
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    estimated_hours: Optional[float] = None
+    billing_model: BillingModel
+    project_type: ProjectType
+    project_status_external: Optional[str] = None
+    
+    expected_start_date: Optional[date] = None
+    expected_end_date: Optional[date]   = None
 
-    actual_start_date: Optional[date] = None
-    actual_end_date: Optional[date] = None
-    actual_hours: Optional[float] = None
+    description: Optional[str]          = None
+    status: str                         = "Active"
+    priority: str                       = "Medium"
 
-    is_archived: bool = False
-    is_template: bool = False
-    is_group: bool = False
+    owner_id: Optional[int]             = None
+    project_manager_id: Optional[int]   = None
+    delivery_head_id: Optional[int]     = None
+    template_id: Optional[int]          = None
 
-    manager_email: Optional[str] = None
-    created_by_email: Optional[str] = None
-    status_id: Optional[int] = None
-    previous_status: Optional[int] = None
-    priority_id: Optional[int] = None
+    estimated_hours: Optional[float]    = 0.0
+    actual_hours: Optional[float]       = 0.0
+    actual_start_date: Optional[date]   = None
+    actual_end_date: Optional[date]     = None
 
-    manager: Optional[UserBase] = None
-    creator: Optional[UserBase] = None
-    status: Optional[MasterResponse] = None
-    previous_status_obj: Optional[MasterResponse] = None
-    priority: Optional[MasterResponse] = None
-    users: List[UserBase] = []
+    is_archived: bool                   = False
+    is_template: bool                   = False
+    is_group: bool                      = False
+    is_processed: bool                  = False
 
-    model_config = {"from_attributes": True}
+    owner: Optional[UserBase]           = None
+    project_manager: Optional[UserBase] = None
+    delivery_head: Optional[UserBase]   = None
 
 class ProjectListResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     total: int
     items: List[ProjectResponse]
 
 class ProjectUserCreate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
     user_id: str
     user_email: str
-    display_name: Optional[str] = None
+    display_name: Optional[str]   = None
     project_id: int
-    role_id: Optional[int] = None
-
-    @field_validator("project_id")
-    @classmethod
-    def id_must_be_positive(cls, v: int, info) -> int:
-        if v is None or v <= 0:
-            raise ValueError(f"{info.field_name} must be a positive integer")
-        return v
-
-    @field_validator("user_id", "user_email")
-    @classmethod
-    def value_must_not_be_empty(cls, v: str, info) -> str:
-        if not v or not v.strip():
-            raise ValueError(f"{info.field_name} must not be null or empty")
-        return v.strip()
+    project_profile: str          = "Member"
+    portal_profile: str           = "User"
