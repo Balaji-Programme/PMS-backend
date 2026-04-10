@@ -39,23 +39,20 @@ app = FastAPI(
 
 add_exception_handlers(app)
 
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
-
-class ForceHTTPSMiddleware:
-    def __init__(self, app):
-        self.app = app
-    async def __call__(self, scope, receive, send):
-        if scope["type"] == "http":
-            headers = dict(scope.get("headers", []))
-            if b"x-forwarded-proto" in headers:
-                scope["scheme"] = headers[b"x-forwarded-proto"].decode("latin1").strip()
-            elif IS_PRODUCTION:
-                scope["scheme"] = "https"
-        return await self.app(scope, receive, send)
-
-app.add_middleware(ForceHTTPSMiddleware)
-
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+if IS_PRODUCTION:
+    app.add_middleware(HTTPSRedirectMiddleware)
+
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=[
+        "trucszohoreplica.azurewebsites.net",
+        "*.azurewebsites.net",
+        "localhost",
+        "127.0.0.1",
+    ],
+)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
@@ -84,18 +81,21 @@ app.add_middleware(
     max_age=600,
 )
 
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=[
-        "trucszohoreplica.azurewebsites.net",
-        "*.azurewebsites.net",
-        "localhost",
-        "127.0.0.1",
-    ],
-)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
-if IS_PRODUCTION:
-    app.add_middleware(HTTPSRedirectMiddleware)
+class ForceHTTPSMiddleware:
+    def __init__(self, app):
+        self.app = app
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            headers = dict(scope.get("headers", []))
+            if b"x-forwarded-proto" in headers:
+                scope["scheme"] = headers[b"x-forwarded-proto"].decode("latin1").strip()
+            elif IS_PRODUCTION:
+                scope["scheme"] = "https"
+        return await self.app(scope, receive, send)
+
+app.add_middleware(ForceHTTPSMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
