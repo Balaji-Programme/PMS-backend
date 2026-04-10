@@ -1,6 +1,3 @@
-"""
-Issue / Bug ORM model — SQLAlchemy 2.0 `Mapped` syntax.
-"""
 from __future__ import annotations
 
 import enum
@@ -15,13 +12,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, AuditMixin
 
-
 class Severity(str, enum.Enum):
     CRITICAL = "Critical"
     HIGH = "High"
     MEDIUM = "Medium"
     LOW = "Low"
-
 
 issue_followers = Table(
     "issue_followers",
@@ -37,14 +32,12 @@ issue_assignees = Table(
     Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
 )
 
-
 class Issue(AuditMixin, Base):
     __tablename__ = "issues"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    
-    # Formerly title
+
     bug_name: Mapped[str] = mapped_column(String(255), index=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -71,7 +64,6 @@ class Issue(AuditMixin, Base):
     estimated_hours: Mapped[Optional[float]] = mapped_column(Numeric(5, 2), nullable=True)
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # --- RELATIONSHIPS ---
     project  = relationship("Project", back_populates="issues", lazy="selectin")
     reporter = relationship("User", foreign_keys=[reporter_id], lazy="selectin")
     assignee = relationship("User", foreign_keys=[assignee_id], lazy="selectin")

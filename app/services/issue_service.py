@@ -1,4 +1,3 @@
-"""Issue service — full async rewrite (SQLAlchemy 2.0 AsyncSession)."""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -13,7 +12,6 @@ from app.models.user import User
 from app.schemas.issue import IssueCreate, IssueUpdate
 from app.utils.ids import generate_public_id
 from app.utils.audit_utils import capture_audit_details, write_audit
-
 
 def _issue_query():
     return (
@@ -30,11 +28,9 @@ def _issue_query():
         )
     )
 
-
 async def get_issue(db: AsyncSession, issue_id: int) -> Optional[Issue]:
     result = await db.execute(_issue_query().where(Issue.id == issue_id))
     return result.scalar_one_or_none()
-
 
 async def get_issues(
     db: AsyncSession,
@@ -60,7 +56,6 @@ async def get_issues(
     total = (await db.execute(count_stmt)).scalar() or 0
     items_result = await db.execute(stmt.offset(skip).limit(limit))
     return {"total": total, "items": items_result.scalars().unique().all()}
-
 
 async def create_issue(
     db: AsyncSession,
@@ -107,7 +102,6 @@ async def create_issue(
     await db.commit()
     return await get_issue(db, db_issue.id)
 
-
 async def update_issue(
     db: AsyncSession,
     issue_id: int,
@@ -143,7 +137,6 @@ async def update_issue(
     await db.commit()
     return await get_issue(db, issue_id)
 
-
 async def delete_issue(
     db: AsyncSession,
     issue_id: int,
@@ -161,7 +154,6 @@ async def delete_issue(
     await db.delete(db_issue)
     await db.commit()
     return True
-
 
 async def search_issues(
     db: AsyncSession,

@@ -1,15 +1,3 @@
-"""
-Projects endpoint — full async rewrite.
-
-Changes from sync version:
-  - All handlers are async def using AsyncSession.
-  - update/delete now use CheckProjectOwner (God-mode bypass).
-  - create_project queues MS Teams background task.
-  - POST /{id}/sync endpoint triggers re-sync of external fields.
-  - DELETED: legacy POST /{id}/users/{email} endpoint.
-  - DELETED: PUT /{id}/audited (duplicate — audit is in service layer).
-  - archive/unarchive now call project_service helpers (no inline SQL).
-"""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -33,9 +21,6 @@ from app.services.teams_automation import create_ms_team_for_project
 
 router = APIRouter(dependencies=[Depends(allow_authenticated)])
 
-
-# ── Create ────────────────────────────────────────────────────────────────────
-
 @router.post("/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def create_project_endpoint(
     project: ProjectCreate,
@@ -47,8 +32,6 @@ async def create_project_endpoint(
         db=db, project=project, actor_id=current_user.public_id
     )
 
-    # Fire-and-forget: prepare MS Team in the background hook
-    # Uses MS Teams Background Task to spin off graph integration without lag
     from app.services.ms_teams_service import MSTeamsService
     member_emails = project.user_emails or []
     background_tasks.add_task(
@@ -59,9 +42,6 @@ async def create_project_endpoint(
 
     return db_project
 
-
-# ── Search (before /{project_id} to avoid param collision) ───────────────────
-
 @router.get("/search", response_model=List[ProjectResponse])
 async def search_projects(
     q: str = Query(..., min_length=1),
@@ -69,9 +49,6 @@ async def search_projects(
     db: AsyncSession = Depends(get_db),
 ):
     return await project_service.search_projects(db, query=q, limit=limit)
-
-
-# ── List ──────────────────────────────────────────────────────────────────────
 
 @router.get("/", response_model=List[ProjectResponse])
 async def read_projects(
@@ -99,9 +76,6 @@ async def read_projects(
         current_user  = current_user if is_employee_only(current_user) else None,
     )
 
-
-# ── Read ──────────────────────────────────────────────────────────────────────
-
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def read_project(
     project_id: int,
@@ -115,9 +89,6 @@ async def read_project(
         if current_user.email not in {u.email for u in db_project.users}:
             raise HTTPException(status_code=403, detail="You are not a member of this project.")
     return db_project
-
-
-# ── Update (God-mode: owner bypasses role check) ──────────────────────────────
 
 @router.put("/{project_id}", response_model=ProjectResponse)
 async def update_project(
@@ -133,9 +104,6 @@ async def update_project(
         raise HTTPException(status_code=404, detail="Project not found")
     return db_project
 
-
-# ── Delete (God-mode) ─────────────────────────────────────────────────────────
-
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(
     project_id: int,
@@ -148,9 +116,6 @@ async def delete_project(
     if not success:
         raise HTTPException(status_code=404, detail="Project not found")
 
-
-# ── Archive / Unarchive ───────────────────────────────────────────────────────
-
 @router.patch("/{project_id}/archive", response_model=ProjectResponse)
 async def archive_project(
     project_id: int,
@@ -161,7 +126,6 @@ async def archive_project(
     if not result:
         raise HTTPException(status_code=404, detail="Project not found")
     return result
-
 
 @router.patch("/{project_id}/unarchive", response_model=ProjectResponse)
 async def unarchive_project(
@@ -174,9 +138,6 @@ async def unarchive_project(
         raise HTTPException(status_code=404, detail="Project not found")
     return result
 
-
-# ── External Sync ─────────────────────────────────────────────────────────────
-
 @router.post("/{project_id}/sync", response_model=ProjectResponse)
 async def sync_project(
     project_id: int,
@@ -184,20 +145,12 @@ async def sync_project(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(allow_pm),
 ):
-    """
-    Trigger a re-sync of external-source fields (Zoho/SharePoint).
-    Only project_id_sync, account_name, and customer_name are writable here.
-    """
     result = await project_service.sync_project_fields(
         db, project_id=project_id, sync_data=sync_data, actor_id=current_user.o365_id
     )
     if not result:
         raise HTTPException(status_code=404, detail="Project not found")
     return result
-
-
-
-# ── Audit log ─────────────────────────────────────────────────────────────────
 
 @router.get("/{project_id}/audit", response_model=List[AuditLogResponse])
 async def get_project_audit_logs(

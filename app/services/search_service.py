@@ -1,4 +1,3 @@
-"""Search service — full async rewrite (SQLAlchemy 2.0 AsyncSession)."""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -9,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.project import Project
 from app.models.task import Task
 from app.models.issue import Issue
-
 
 class SearchService:
 
@@ -90,6 +88,5 @@ class SearchService:
             for i in issues
         )
         return search_results
-
 
 search_service = SearchService()

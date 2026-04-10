@@ -1,6 +1,3 @@
-"""
-Template service — async CRUD for ProjectTemplate and TemplateTask.
-"""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -12,16 +9,14 @@ from sqlalchemy.orm import selectinload
 from app.models.template import ProjectTemplate, TemplateTask
 from app.schemas.template import ProjectTemplateCreate
 
-
 async def get_templates(db: AsyncSession) -> List[ProjectTemplate]:
     result = await db.execute(
         select(ProjectTemplate)
         .options(selectinload(ProjectTemplate.tasks))
-        .where(ProjectTemplate.is_deleted == False)  # noqa: E712
+        .where(ProjectTemplate.is_deleted == False)  
         .order_by(ProjectTemplate.name)
     )
     return result.scalars().all()
-
 
 async def get_template(db: AsyncSession, template_id: int) -> Optional[ProjectTemplate]:
     result = await db.execute(
@@ -30,7 +25,6 @@ async def get_template(db: AsyncSession, template_id: int) -> Optional[ProjectTe
         .where(ProjectTemplate.id == template_id)
     )
     return result.scalar_one_or_none()
-
 
 async def create_template(
     db: AsyncSession,
@@ -61,7 +55,6 @@ async def create_template(
 
     await db.commit()
     return await get_template(db, db_template.id)
-
 
 async def delete_template(db: AsyncSession, template_id: int) -> bool:
     template = await get_template(db, template_id)

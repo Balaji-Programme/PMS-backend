@@ -6,7 +6,6 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.user import UserBase
 
-
 class MilestoneCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -24,7 +23,6 @@ class MilestoneCreate(BaseModel):
     end_date: Optional[date]   = None
     completion_percentage: Optional[int] = 0
 
-
 class MilestoneUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -37,7 +35,6 @@ class MilestoneUpdate(BaseModel):
     start_date: Optional[date]    = None
     end_date: Optional[date]      = None
     completion_percentage: Optional[int] = None
-
 
 class MilestoneResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -15,14 +15,12 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL(self) -> str:
-        """Sync URL (kept for Alembic env.py compatibility only)."""
         import urllib.parse
         encoded_password = urllib.parse.quote_plus(self.MYSQL_PASSWORD)
         return f"mysql+pymysql://{self.MYSQL_USER}:{encoded_password}@{self.MYSQL_SERVER}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
 
     @property
     def ASYNC_DATABASE_URL(self) -> str:
-        """Async URL used by the application runtime (aiomysql driver)."""
         import urllib.parse
         encoded_password = urllib.parse.quote_plus(self.MYSQL_PASSWORD)
         return f"mysql+aiomysql://{self.MYSQL_USER}:{encoded_password}@{self.MYSQL_SERVER}:{self.MYSQL_PORT}/{self.MYSQL_DB}"

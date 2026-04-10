@@ -3,10 +3,9 @@ from __future__ import annotations
 from datetime import date
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.user import UserBase
-
 
 class TaskCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -37,7 +36,6 @@ class TaskCreate(BaseModel):
     owner_emails: List[str]    = Field(default_factory=list)
     assignee_emails: List[str] = Field(default_factory=list)
 
-
 class TaskUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -62,7 +60,6 @@ class TaskUpdate(BaseModel):
 
     owner_emails: Optional[List[str]]    = None
     assignee_emails: Optional[List[str]] = None
-
 
 class TaskResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -101,9 +98,25 @@ class TaskResponse(BaseModel):
     single_owner: Optional[UserBase] = None
     creator: Optional[UserBase]      = None
 
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+    team_name: Optional[str] = None
+
     owners: List[UserBase]    = Field(default_factory=list)
     assignees: List[UserBase] = Field(default_factory=list)
 
+    @model_validator(mode='before')
+    @classmethod
+    def _resolve_team_name(cls, values: any) -> any:
+        if hasattr(values, 'associated_team') and values.associated_team is not None:
+            
+            object.__setattr__ if hasattr(values, '__dict__') else None
+            try:
+                values.__dict__['team_name'] = values.associated_team.name
+            except Exception:
+                pass
+        return values
 
 class TaskListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -1,7 +1,3 @@
-"""
-Task ORM model — SQLAlchemy 2.0 `Mapped` syntax.
-Includes @hybrid_property for timelog calculations.
-"""
 from __future__ import annotations
 
 from datetime import date
@@ -15,7 +11,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, object_session
 from sqlalchemy.ext.hybrid import hybrid_property
 
 from app.core.database import Base, AuditMixin
-
 
 task_owners = Table(
     "task_owners",
@@ -36,8 +31,7 @@ class Task(AuditMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    
-    # Formerly title
+
     task_name: Mapped[str] = mapped_column(String(255), index=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -66,7 +60,6 @@ class Task(AuditMixin, Base):
 
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # --- RELATIONSHIPS ---
     project   = relationship("Project", back_populates="tasks", lazy="selectin")
     task_list = relationship("TaskList", back_populates="tasks", lazy="selectin")
     
@@ -77,15 +70,23 @@ class Task(AuditMixin, Base):
     owners    = relationship("User", secondary=task_owners, lazy="selectin")
     assignees = relationship("User", secondary=task_assignees, lazy="selectin")
 
+    associated_team = relationship("Team", foreign_keys=[associated_team_id], lazy="selectin")
+
     timelogs: Mapped[List["TimeLog"]] = relationship("TimeLog", back_populates="task", cascade="all, delete-orphan", lazy="selectin")
 
-    # --- HYBRID PROPERTIES ---
     @hybrid_property
     def timelog_total(self) -> float:
-        # Avoid eager loop execution cost during queries; rely on loaded relationships
-        return sum(float(log.hours) for log in self.timelogs) if self.timelogs else 0.0
+        if not self.timelogs:
+            return 0.0
+        return sum(float(log.hours or 0) for log in self.timelogs)
 
     @hybrid_property
     def difference(self) -> float:
-        w_hours = float(self.work_hours) if self.work_hours else 0.0
-        return w_hours - self.timelog_total
+        w_hours = float(self.work_hours or 0)
+        return round(w_hours - self.timelog_total, 2)
+
+    @hybrid_property
+    def duration(self) -> Optional[int]:
+        if self.due_date and self.start_date:
+            return (self.due_date - self.start_date).days
+        return None

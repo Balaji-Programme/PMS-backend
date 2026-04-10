@@ -1,4 +1,3 @@
-"""Auth endpoint — async rewrite. upsert_o365_user is now awaited."""
 from __future__ import annotations
 
 import logging
@@ -17,7 +16,6 @@ from app.services.user_service import upsert_o365_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
 
 def _build_token_response(user: User) -> TokenResponse:
     access_token = create_access_token(
@@ -38,7 +36,6 @@ def _build_token_response(user: User) -> TokenResponse:
         is_external  = user.is_external,
         is_synced    = user.is_synced,
     )
-
 
 @router.post("/redirect", response_model=TokenResponse)
 async def ms_callback(payload: MSCallbackRequest, db: AsyncSession = Depends(get_db)):
@@ -85,7 +82,6 @@ async def ms_callback(payload: MSCallbackRequest, db: AsyncSession = Depends(get
         logger.error("MS Graph fetch failed: %s", exc)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to fetch profile from Microsoft.")
 
-    # upsert_o365_user is now async
     user = await upsert_o365_user(
         db           = db,
         o365_id      = ms_user.get("id"),
@@ -99,7 +95,6 @@ async def ms_callback(payload: MSCallbackRequest, db: AsyncSession = Depends(get
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
 
     return _build_token_response(user)
-
 
 @router.get("/me")
 async def get_current_user_profile(current_user: User = Depends(get_current_user)):

@@ -1,4 +1,3 @@
-"""Tasks endpoint — full async rewrite."""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -13,7 +12,6 @@ from app.services import task_service
 
 router = APIRouter(dependencies=[Depends(allow_authenticated)])
 
-
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(
     task: TaskCreate,
@@ -23,7 +21,6 @@ async def create_task(
     if not task.created_by_email:
         task.created_by_email = current_user.email
     return await task_service.create_task(db=db, task=task, actor_id=current_user.o365_id or str(current_user.id))
-
 
 @router.post("/bulk", response_model=List[TaskResponse])
 async def bulk_create_tasks(
@@ -38,7 +35,6 @@ async def bulk_create_tasks(
         results.append(await task_service.create_task(db=db, task=t, actor_id=current_user.o365_id or str(current_user.id)))
     return results
 
-
 @router.get("/search", response_model=List[TaskResponse])
 async def search_tasks(
     q: str = Query(..., min_length=1),
@@ -47,7 +43,6 @@ async def search_tasks(
     db: AsyncSession = Depends(get_db),
 ):
     return await task_service.search_tasks(db, query=q, project_id=project_id, limit=limit)
-
 
 @router.get("/", response_model=TaskListResponse)
 async def read_tasks(
@@ -72,7 +67,6 @@ async def read_tasks(
         assignee_emails = assignee_email,
     )
 
-
 @router.get("/{task_id}", response_model=TaskResponse)
 async def read_task(
     task_id: int,
@@ -86,7 +80,6 @@ async def read_task(
         raise HTTPException(status_code=403, detail="Access denied: you are not assigned to this task.")
     return db_task
 
-
 @router.put("/{task_id}", response_model=TaskResponse)
 async def update_task(
     task_id: int,
@@ -98,7 +91,6 @@ async def update_task(
     if updated is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return updated
-
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(

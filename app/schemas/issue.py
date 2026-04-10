@@ -8,7 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.issue import Severity
 from app.schemas.user import UserBase
 
-
 class IssueCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -36,7 +35,6 @@ class IssueCreate(BaseModel):
     follower_emails: List[str] = Field(default_factory=list)
     assignee_emails: List[str] = Field(default_factory=list)
 
-
 class IssueUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -60,7 +58,6 @@ class IssueUpdate(BaseModel):
     due_date: Optional[date] = None
     last_closed_time: Optional[datetime] = None
     estimated_hours: Optional[float] = None
-
 
 class IssueResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -89,12 +86,14 @@ class IssueResponse(BaseModel):
     last_closed_time: Optional[datetime]
     estimated_hours: Optional[float]
 
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
     assignee: Optional[UserBase] = None
     reporter: Optional[UserBase] = None
 
     followers: List[UserBase] = Field(default_factory=list)
     assignees: List[UserBase] = Field(default_factory=list)
-
 
 class IssueListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -1,7 +1,3 @@
-"""
-Task service — full async rewrite for Phase 2.
-SQLAlchemy 2.0 AsyncSession explicitly adopted.
-"""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -16,19 +12,19 @@ from app.schemas.task import TaskCreate, TaskUpdate
 from app.utils.ids import generate_public_id
 from app.utils.audit_utils import capture_audit_details, write_audit
 
-
 def _task_query():
     return (
         select(Task)
         .options(
             selectinload(Task.project),
             selectinload(Task.task_list),
+            selectinload(Task.associated_team),  
             selectinload(Task.assignee),
             selectinload(Task.creator),
             selectinload(Task.single_owner),
             selectinload(Task.owners),
             selectinload(Task.assignees),
-            selectinload(Task.timelogs) # needed for hybrid properties
+            selectinload(Task.timelogs),  
         )
     )
 
@@ -61,7 +57,6 @@ async def get_tasks(
 
     items_result = await db.execute(stmt.offset(skip).limit(limit))
     return {"total": total, "items": items_result.scalars().unique().all()}
-
 
 async def create_task(
     db: AsyncSession,
@@ -108,7 +103,6 @@ async def create_task(
     await db.commit()
     return await get_task(db, db_task.id)
 
-
 async def update_task(
     db: AsyncSession,
     task_id: int,
@@ -137,7 +131,6 @@ async def update_task(
     await write_audit(db, actor_id, "UPDATE", "tasks", db_task.project_id or task_id, task_id, changes)
     await db.commit()
     return await get_task(db, task_id)
-
 
 async def delete_task(
     db: AsyncSession,

@@ -1,11 +1,3 @@
-# --------------------------------------------------------------------------
-# Azure App Service Python Production Environment
-# Minimum Supported Python Version: 3.14.x
-# 
-# These packages have been audited and verified for Python 3.14.
-# Do not downgrade core dependencies (FastAPI, Pydantic, SQLAlchemy)
-# as they heavily leverage modern Python optimizations for production.
-# --------------------------------------------------------------------------
 
 alembic==1.18.4
 amqp==5.3.1

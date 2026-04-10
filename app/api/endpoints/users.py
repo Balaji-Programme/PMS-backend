@@ -1,4 +1,3 @@
-"""Users endpoint — full async rewrite."""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -14,11 +13,9 @@ from app.services import user_service
 
 router = APIRouter(dependencies=[Depends(allow_authenticated)])
 
-
 @router.get("/me", response_model=UserResponse)
 async def read_user_me(current_user: User = Depends(get_current_user)):
     return current_user
-
 
 @router.get("/search", response_model=List[UserResponse])
 async def search_users(
@@ -27,7 +24,6 @@ async def search_users(
     db: AsyncSession = Depends(get_db),
 ):
     return await user_service.search_users(db, query=q, limit=limit)
-
 
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
@@ -46,7 +42,6 @@ async def create_user(
             raise HTTPException(status_code=400, detail="Employee ID already exists")
         raise HTTPException(status_code=400, detail="Failed to create user. Data might violate constraints.")
 
-
 @router.get("/", response_model=UserListResponse)
 async def read_users(
     skip: int = 0,
@@ -57,7 +52,6 @@ async def read_users(
 ):
     return await user_service.get_users(db, skip=skip, limit=limit, search=search, role_ids=role_id)
 
-
 @router.get("/{user_id}", response_model=UserResponse)
 async def read_user(
     user_id: int,
@@ -67,7 +61,6 @@ async def read_user(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
-
 
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user(
@@ -84,7 +77,6 @@ async def update_user(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
-
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(

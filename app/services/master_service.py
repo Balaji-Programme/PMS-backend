@@ -1,4 +1,3 @@
-"""Master service — full async rewrite (SQLAlchemy 2.0 AsyncSession)."""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -10,7 +9,6 @@ from sqlalchemy.orm import selectinload
 from app.models.masters import UserStatus, Skill, Status, Priority
 from app.models.roles import Role
 from app.models.user import User
-
 
 async def get_user_statuses(db: AsyncSession) -> List[UserStatus]:
     return (await db.execute(select(UserStatus))).scalars().all()

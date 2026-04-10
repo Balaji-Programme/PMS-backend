@@ -9,7 +9,6 @@ from app.models.project import BillingModel, ProjectType
 from app.schemas.user import UserBase
 from app.schemas.masters import MasterResponse
 
-
 class ProjectCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -48,7 +47,6 @@ class ProjectCreate(BaseModel):
 
     user_emails: List[str]                  = Field(default_factory=list)
 
-
 class ProjectUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -82,7 +80,6 @@ class ProjectUpdate(BaseModel):
     is_group: Optional[bool]                = None
     user_emails: Optional[List[str]]        = None
 
-
 class ProjectSyncUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -90,7 +87,6 @@ class ProjectSyncUpdate(BaseModel):
     account_name: Optional[str]    = None
     customer_name: Optional[str]   = None
     project_name: Optional[str]    = None
-
 
 class ProjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -133,13 +129,11 @@ class ProjectResponse(BaseModel):
     project_manager: Optional[UserBase] = None
     delivery_head: Optional[UserBase]   = None
 
-
 class ProjectListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     total: int
     items: List[ProjectResponse]
-
 
 class ProjectUserCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.api.router import api_router
 from app.utils.exceptions import add_exception_handlers
-from app.models import *  # noqa: F401, F403 — registers all ORM models with Base.metadata
+from app.models import *
 from fastapi.staticfiles import StaticFiles
 
 if not os.path.exists("uploads"):
@@ -20,18 +20,12 @@ if not os.path.exists("uploads"):
 
 IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Async startup: run DDL sync only in development.
-    Production must use `alembic upgrade head` before deployment.
-    """
     if not IS_PRODUCTION:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     yield
-    # Graceful shutdown: dispose engine connection pool
     await engine.dispose()
 
 app = FastAPI(
@@ -44,8 +38,6 @@ app = FastAPI(
 )
 
 add_exception_handlers(app)
-
-# ── Middleware stack (order matters — applied bottom-up) ──────────────────────
 
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
@@ -63,7 +55,6 @@ class ForceHTTPSMiddleware:
 
 app.add_middleware(ForceHTTPSMiddleware)
 
-# GZip compress all responses ≥ 1 KB (JSON compresses 70-90%)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

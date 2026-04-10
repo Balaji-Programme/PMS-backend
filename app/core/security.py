@@ -1,12 +1,3 @@
-"""
-Async security layer.
-
-Changes from sync version:
-1. get_current_user is now async — uses AsyncSession via get_db.
-2. CheckProjectOwner dependency added — bypasses role checks when
-   current_user.id == project.owner_id (God-mode).
-3. Dead alias exports (allow_admin, allow_manager_plus, allow_all) removed.
-"""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -25,7 +16,6 @@ from app.core.database import get_db
 pwd_context    = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _bearer_scheme = HTTPBearer(auto_error=False)
 
-# ── Role constants ────────────────────────────────────────────────────────────
 ROLE_ADMIN           = "Admin"
 ROLE_PROJECT_MANAGER = "Project Manager"
 ROLE_TEAM_LEAD       = "Team Lead"
@@ -35,16 +25,11 @@ FULL_ACCESS_ROLES     = [ROLE_ADMIN, ROLE_PROJECT_MANAGER]
 TEAM_LEAD_PLUS_ROLES  = [ROLE_ADMIN, ROLE_PROJECT_MANAGER, ROLE_TEAM_LEAD]
 ALL_ROLES             = [ROLE_ADMIN, ROLE_PROJECT_MANAGER, ROLE_TEAM_LEAD, ROLE_EMPLOYEE]
 
-
-# ── Password utilities ────────────────────────────────────────────────────────
-
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
-
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
-
 
 def create_access_token(
     subject: Union[str, Any],
@@ -58,9 +43,6 @@ def create_access_token(
         settings.SECRET_KEY,
         algorithm=settings.ALGORITHM,
     )
-
-
-# ── Current-user dependency (async) ──────────────────────────────────────────
 
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
@@ -93,9 +75,6 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
 
-
-# ── Role helpers ──────────────────────────────────────────────────────────────
-
 def get_user_role_name(user) -> Optional[str]:
     return user.role.name if user and user.role else None
 
@@ -107,9 +86,6 @@ def is_team_lead_plus(user) -> bool:
 
 def is_employee_only(user) -> bool:
     return get_user_role_name(user) == ROLE_EMPLOYEE
-
-
-# ── Role-based dependency ─────────────────────────────────────────────────────
 
 class RoleChecker:
     def __init__(self, allowed_roles: List[str]):
@@ -123,32 +99,14 @@ class RoleChecker:
             detail=f"Access denied. Requires one of: {', '.join(self.allowed_roles)}",
         )
 
-
 allow_pm             = RoleChecker(FULL_ACCESS_ROLES)
 allow_team_lead_plus = RoleChecker(TEAM_LEAD_PLUS_ROLES)
 allow_all_roles      = RoleChecker(ALL_ROLES)
 
-
 async def allow_authenticated(current_user=Depends(get_current_user)):
     return current_user
 
-
-# ── God-Mode Project Owner dependency ────────────────────────────────────────
-
 class CheckProjectOwner:
-    """
-    FastAPI dependency that short-circuits all role checks when the calling
-    user is the designated owner of the target project.
-
-    Usage:
-        check_owner_or_pm = CheckProjectOwner(allowed_roles=FULL_ACCESS_ROLES)
-
-        @router.put("/{project_id}")
-        async def update(
-            project_id: int,
-            current_user = Depends(check_owner_or_pm),
-        ): ...
-    """
     def __init__(self, allowed_roles: List[str]):
         self.allowed_roles = allowed_roles
 
@@ -160,15 +118,12 @@ class CheckProjectOwner:
     ):
         from app.models.project import Project
 
-        # Fast path: only owner_id is fetched — single-column query
         result   = await db.execute(select(Project.owner_id).where(Project.id == project_id))
         owner_id = result.scalar_one_or_none()
 
-        # Owner bypass: skip all role restrictions
         if owner_id is not None and owner_id == current_user.id:
             return current_user
 
-        # Standard role enforcement
         if current_user.role and current_user.role.name in self.allowed_roles:
             return current_user
 
@@ -176,7 +131,6 @@ class CheckProjectOwner:
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Access denied. Requires project ownership or one of: {', '.join(self.allowed_roles)}",
         )
-
 
 class CheckTaskOwner:
     def __init__(self, allowed_roles: List[str]):
@@ -214,13 +168,9 @@ class CheckTaskOwner:
             detail=f"Access denied. Requires assignee, project ownership or one of: {', '.join(self.allowed_roles)}",
         )
 
-# Pre-built instances used by the projects router
 check_project_owner_or_pm       = CheckProjectOwner(FULL_ACCESS_ROLES)
 check_project_owner_or_lead     = CheckProjectOwner(TEAM_LEAD_PLUS_ROLES)
 check_task_owner_or_lead        = CheckTaskOwner(TEAM_LEAD_PLUS_ROLES)
-
-
-# ── Project-role-scoped dependency (kept for advanced per-project roles) ──────
 
 class ProjectRoleChecker:
     def __init__(self, allowed_roles: List[str]):
@@ -261,7 +211,6 @@ class ProjectRoleChecker:
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Requires project-specific role: {', '.join(self.allowed_roles)}",
         )
-
 
 allow_project_lead   = ProjectRoleChecker(["Project Lead"])
 allow_project_member = ProjectRoleChecker(["Project Lead", "Developer", "Member"])

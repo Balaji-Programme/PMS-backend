@@ -6,7 +6,6 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.user import UserBase
 
-
 class TimeLogCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -25,7 +24,6 @@ class TimeLogCreate(BaseModel):
     approval_status: Optional[str] = "Pending"
     general_log: Optional[bool] = False
 
-
 class TimeLogUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -36,7 +34,6 @@ class TimeLogUpdate(BaseModel):
     notes: Optional[str] = None
     billing_type: Optional[str] = None
     approval_status: Optional[str] = None
-
 
 class TimeLogResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -1,4 +1,3 @@
-"""Team service — full async rewrite (SQLAlchemy 2.0 AsyncSession)."""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -13,20 +12,16 @@ from app.schemas.team import TeamCreate, TeamUpdate
 from app.utils.ids import generate_public_id
 from app.utils.audit_utils import capture_audit_details, write_audit
 
-
 def _team_query():
     return select(Team).options(selectinload(Team.members), selectinload(Team.lead))
-
 
 async def get_team(db: AsyncSession, team_id: int) -> Optional[Team]:
     result = await db.execute(_team_query().where(Team.id == team_id))
     return result.scalar_one_or_none()
 
-
 async def get_teams(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[Team]:
     result = await db.execute(_team_query().offset(skip).limit(limit))
     return result.scalars().unique().all()
-
 
 async def search_teams(db: AsyncSession, query: str = "", limit: int = 15) -> List[Team]:
     stmt = _team_query()
@@ -34,7 +29,6 @@ async def search_teams(db: AsyncSession, query: str = "", limit: int = 15) -> Li
         stmt = stmt.where(Team.name.ilike(f"%{query}%"))
     result = await db.execute(stmt.limit(limit))
     return result.scalars().unique().all()
-
 
 async def create_team(
     db: AsyncSession,
@@ -69,7 +63,6 @@ async def create_team(
     await db.commit()
     return await get_team(db, db_team.id)
 
-
 async def update_team(
     db: AsyncSession,
     team_id: int,
@@ -96,7 +89,6 @@ async def update_team(
     await db.commit()
     return await get_team(db, team_id)
 
-
 async def delete_team(
     db: AsyncSession,
     team_id: int,
@@ -113,7 +105,6 @@ async def delete_team(
     await db.delete(db_team)
     await db.commit()
     return True
-
 
 async def add_team_member(
     db: AsyncSession,
@@ -133,7 +124,6 @@ async def add_team_member(
         await db.commit()
         return True
     return False
-
 
 async def remove_team_member(
     db: AsyncSession,

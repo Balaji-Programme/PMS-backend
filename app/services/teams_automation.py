@@ -1,16 +1,3 @@
-"""
-MS Teams automation — async background task.
-
-Called after project creation to:
-  1. Create a Microsoft Team named after the project.
-  2. Bulk-add all team_member emails as Members.
-
-Uses AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_CLIENT_SECRET from settings
-to acquire a client-credentials token via MSAL, then posts to MS Graph.
-
-This is a _fire-and-forget_ background task. Any failure is logged but
-does NOT propagate — it must never break the project creation response.
-"""
 from __future__ import annotations
 
 import logging
@@ -18,18 +5,11 @@ from typing import List, Optional
 
 logger = logging.getLogger("app.teams_automation")
 
-
 async def create_ms_team_for_project(
     project_name: str,
     member_emails: List[str],
     project_id: Optional[int] = None,
 ) -> None:
-    """
-    Background task: create an MS Team for the project and add members.
-
-    Wired into the BackgroundTasks queue from the create_project endpoint.
-    Fails gracefully — all errors are logged, never raised.
-    """
     import httpx
     from app.core.config import settings
 
@@ -46,7 +26,7 @@ async def create_ms_team_for_project(
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # ── Step 1: Acquire client-credentials token ──────────────────────
+            
             token_resp = await client.post(
                 f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
                 data={
@@ -64,7 +44,6 @@ async def create_ms_team_for_project(
                 "Content-Type":  "application/json",
             }
 
-            # ── Step 2: Create the Team ───────────────────────────────────────
             create_resp = await client.post(
                 "https://graph.microsoft.com/v1.0/teams",
                 headers=headers,
@@ -77,7 +56,7 @@ async def create_ms_team_for_project(
                     "funSettings": {"allowGiphy": False},
                 },
             )
-            # Teams creation returns 202 Accepted with Location header
+            
             if create_resp.status_code not in (201, 202):
                 logger.error(
                     "Failed to create MS Team for project '%s': %s %s",
@@ -92,8 +71,6 @@ async def create_ms_team_for_project(
 
             logger.info("MS Team created: team_id=%s for project='%s'", team_id, project_name)
 
-            # ── Step 3: Bulk-add members ──────────────────────────────────────
-            # Graph Batch API — up to 20 members per batch call
             for email in member_emails:
                 try:
                     member_resp = await client.post(

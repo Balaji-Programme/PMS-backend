@@ -1,14 +1,8 @@
-"""
-Template schemas — Pydantic v2.
-
-Used by GET/POST /templates endpoints and by ProjectCreate (template_id field).
-"""
 from __future__ import annotations
 
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 class TemplateTaskCreate(BaseModel):
     title: str               = Field(..., min_length=1, max_length=255)
@@ -18,7 +12,6 @@ class TemplateTaskCreate(BaseModel):
     order_index: int              = 0
 
     model_config = ConfigDict(from_attributes=True)
-
 
 class TemplateTaskResponse(BaseModel):
     id: int
@@ -30,14 +23,12 @@ class TemplateTaskResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-
 class ProjectTemplateCreate(BaseModel):
     name: str               = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     tasks: List[TemplateTaskCreate] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
-
 
 class ProjectTemplateResponse(BaseModel):
     id: int

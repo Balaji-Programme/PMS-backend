@@ -1,6 +1,3 @@
-"""
-Milestone ORM model — SQLAlchemy 2.0 `Mapped` syntax.
-"""
 from __future__ import annotations
 
 from datetime import date
@@ -14,14 +11,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, AuditMixin
 
-
 class Milestone(AuditMixin, Base):
     __tablename__ = "milestones"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    
-    # Formerly title
+
     milestone_name: Mapped[str] = mapped_column(String(255), index=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -39,6 +34,5 @@ class Milestone(AuditMixin, Base):
     
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # --- RELATIONSHIPS ---
     project = relationship("Project", back_populates="milestones", lazy="selectin")
     owner   = relationship("User", foreign_keys=[owner_id], lazy="selectin")

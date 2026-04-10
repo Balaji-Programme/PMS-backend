@@ -1,10 +1,3 @@
-"""
-Async-safe audit utilities.
-
-- capture_audit_details: pure function, no DB, stays sync.
-- write_audit: async, uses begin_nested savepoint so a failed audit write
-  does NOT abort the parent transaction.
-"""
 from __future__ import annotations
 
 import uuid
@@ -14,12 +7,10 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
 def capture_audit_details(
     old_obj: Any,
     new_data_dict: Dict[str, Any],
 ) -> List[Dict[str, Optional[str]]]:
-    """Diff old ORM object attributes against incoming update dict."""
     changes: List[Dict[str, Optional[str]]] = []
     for field, new_value in new_data_dict.items():
         old_value = getattr(old_obj, field, None)
@@ -31,7 +22,6 @@ def capture_audit_details(
             )
     return changes
 
-
 async def write_audit(
     db: AsyncSession,
     actor_id: Optional[str],
@@ -41,11 +31,6 @@ async def write_audit(
     record_id: int,
     details: Optional[List[Dict[str, Optional[str]]]] = None,
 ) -> None:
-    """
-    Persist an audit log entry inside a nested savepoint.
-    If the audit write fails, the savepoint is rolled back without
-    aborting the caller's transaction.
-    """
     from app.models.audit import AuditLogs, AuditLogDetails
 
     action_map = {"CREATE": 1, "UPDATE": 2, "DELETE": 3, "ASSIGN": 4, "REMOVE": 5}
@@ -87,7 +72,7 @@ async def write_audit(
                     for d in details
                 ])
     except Exception:
-        # Audit failure must never crash the main business transaction.
+        
         import logging
         logging.getLogger("app.audit").warning(
             "Audit write failed for action=%s resource=%s record=%s",

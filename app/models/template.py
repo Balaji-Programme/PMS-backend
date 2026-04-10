@@ -1,17 +1,9 @@
-"""
-Template system models — ProjectTemplate and TemplateTask.
-
-A ProjectTemplate is a reusable blueprint.
-When a Project is created with template_id set, the service layer
-clones all TemplateTask rows into real Task rows.
-"""
 from __future__ import annotations
 
 from sqlalchemy import Column, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base, AuditMixin
-
 
 class ProjectTemplate(AuditMixin, Base):
     __tablename__ = "project_templates"
@@ -20,7 +12,6 @@ class ProjectTemplate(AuditMixin, Base):
     name        = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
 
-    # Who created this template — optional (admin bulk imports may skip)
     created_by_id = Column(
         Integer,
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -36,12 +27,7 @@ class ProjectTemplate(AuditMixin, Base):
         lazy="selectin",
     )
 
-
 class TemplateTask(Base):
-    """
-    A reusable task definition belonging to a ProjectTemplate.
-    Has no AuditMixin — templates are admin-managed, not audited per-row.
-    """
     __tablename__ = "template_tasks"
 
     id              = Column(Integer, primary_key=True, index=True)

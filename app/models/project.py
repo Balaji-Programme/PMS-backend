@@ -1,8 +1,3 @@
-"""
-Project ORM model — Fully updated to strict SQLAlchemy 2.0 `Mapped` syntax.
-Includes Enum definitions for BillingModel and ProjectType.
-Association object pattern utilized for ProjectMember.
-"""
 from __future__ import annotations
 
 import enum
@@ -18,27 +13,16 @@ from sqlalchemy.sql import func
 
 from app.core.database import Base, AuditMixin
 
-
-# ── Domain Enums ─────────────────────────────────────────────────────────────
-
 class BillingModel(str, enum.Enum):
     TM = "T&M"
     FIXED = "FixedMonthly"
     MILESTONE = "Milestone"
 
-
 class ProjectType(str, enum.Enum):
     INTERNAL = "internal"
     EXTERNAL = "external"
 
-
-# ── Association Object: ProjectMember ────────────────────────────────────────
-
 class ProjectMember(Base):
-    """
-    Replaces the pure Many-to-Many 'project_members' Table.
-    Allows local and global role tracking per assignment.
-    """
     __tablename__ = "project_members"
 
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
@@ -53,19 +37,14 @@ class ProjectMember(Base):
     user: Mapped["User"] = relationship(lazy="selectin")
     project: Mapped["Project"] = relationship(back_populates="team_members", lazy="selectin")
 
-
-# ── Core Entity: Project ─────────────────────────────────────────────────────
-
 class Project(AuditMixin, Base):
     __tablename__ = "projects"
 
-    # --- PRIMARY KEY & SYNC TRACKING ---
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    project_id_sync: Mapped[str] = mapped_column(String(100), unique=True, index=True) # External sync key
+    project_id_sync: Mapped[str] = mapped_column(String(100), unique=True, index=True) 
 
     public_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
 
-    # --- READ-ONLY FIELDS (Synced from External Sources) ---
     account_name: Mapped[str]  = mapped_column(String(255))
     project_name: Mapped[str]  = mapped_column(String(255), index=True)
     customer_name: Mapped[str] = mapped_column(String(255))
@@ -78,13 +57,11 @@ class Project(AuditMixin, Base):
     expected_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     expected_end_date: Mapped[Optional[date]]   = mapped_column(Date, nullable=True)
 
-    # --- FOREIGN KEYS FOR STAFFING ---
     owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     project_manager_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     delivery_head_id: Mapped[Optional[int]]   = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     template_id: Mapped[Optional[int]]        = mapped_column(ForeignKey("project_templates.id", ondelete="SET NULL"), nullable=True)
-    
-    # --- EDITABLE FIELDS (Internal Management) ---
+
     status: Mapped[str]   = mapped_column(String(50), default="Active")
     priority: Mapped[str] = mapped_column(String(20), default="Medium")
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -100,8 +77,6 @@ class Project(AuditMixin, Base):
     is_group: Mapped[bool]    = mapped_column(Boolean, default=False)
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 
-
-    # --- RELATIONSHIPS ---
     project_manager = relationship("User", foreign_keys=[project_manager_id], lazy="selectin")
     delivery_head   = relationship("User", foreign_keys=[delivery_head_id], lazy="selectin")
     owner           = relationship("User", foreign_keys=[owner_id], lazy="selectin")

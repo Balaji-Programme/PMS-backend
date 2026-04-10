@@ -1,4 +1,3 @@
-"""User service — full async rewrite (SQLAlchemy 2.0 AsyncSession)."""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -14,7 +13,6 @@ from app.schemas.user import UserCreate, UserUpdate
 from app.utils.ids import generate_public_id
 from app.utils.audit_utils import capture_audit_details, write_audit
 
-
 def _user_query():
     return (
         select(User)
@@ -25,21 +23,17 @@ def _user_query():
         )
     )
 
-
 async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
     result = await db.execute(_user_query().where(User.id == user_id))
     return result.scalar_one_or_none()
-
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
     result = await db.execute(select(User).where(User.email == email))
     return result.scalar_one_or_none()
 
-
 async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User]:
     result = await db.execute(select(User).where(User.username == username))
     return result.scalar_one_or_none()
-
 
 async def get_users(
     db: AsyncSession,
@@ -68,7 +62,6 @@ async def get_users(
     total = (await db.execute(count_stmt)).scalar() or 0
     data = (await db.execute(stmt.offset(skip).limit(limit))).scalars().unique().all()
     return {"total": total, "data": data}
-
 
 async def create_user(
     db: AsyncSession,
@@ -112,7 +105,6 @@ async def create_user(
     await db.commit()
     return await get_user(db, db_user.id)
 
-
 async def update_user(
     db: AsyncSession,
     user_id: int,
@@ -139,7 +131,6 @@ async def update_user(
     await db.commit()
     return await get_user(db, user_id)
 
-
 async def delete_user(
     db: AsyncSession,
     user_id: int,
@@ -156,7 +147,6 @@ async def delete_user(
     await db.delete(db_user)
     await db.commit()
     return True
-
 
 async def search_users(db: AsyncSession, query: str, limit: int = 20) -> List[User]:
     if not query:
@@ -175,7 +165,6 @@ async def search_users(db: AsyncSession, query: str, limit: int = 20) -> List[Us
     )
     return result.scalars().unique().all()
 
-
 async def upsert_o365_user(
     db: AsyncSession,
     o365_id: str,
@@ -184,7 +173,6 @@ async def upsert_o365_user(
     last_name: str,
     display_name: Optional[str] = None,
 ) -> User:
-    """Upsert a user record from Microsoft 365 SSO data."""
     user = (await db.execute(select(User).where(User.o365_id == o365_id))).scalar_one_or_none()
 
     if not user and email:
@@ -212,7 +200,6 @@ async def upsert_o365_user(
         await db.refresh(user)
         return user
 
-    # New user
     default_role = (await db.execute(select(Role).where(Role.name == "Employee"))).scalar_one_or_none()
     base_username = email.split("@")[0].lower().replace(".", "_")
     username = base_username

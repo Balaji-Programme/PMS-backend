@@ -1,7 +1,3 @@
-"""
-Project service — full async rewrite for Phase 2.
-SQLAlchemy 2.0 AsyncSession explicitly adopted.
-"""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -16,7 +12,6 @@ from app.models.template import ProjectTemplate, TemplateTask
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectSyncUpdate
 from app.utils.ids import generate_public_id
 from app.utils.audit_utils import capture_audit_details, write_audit
-
 
 def _project_query(extra_options=()):
     return (
@@ -66,7 +61,6 @@ async def get_projects(
 
     result = await db.execute(stmt.offset(skip).limit(limit))
     return result.scalars().unique().all()
-
 
 async def create_project(
     db: AsyncSession,

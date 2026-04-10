@@ -1,4 +1,3 @@
-"""TaskList service — full async rewrite (SQLAlchemy 2.0 AsyncSession)."""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -11,15 +10,12 @@ from app.models.task_list import TaskList
 from app.schemas.task_list import TaskListCreate, TaskListUpdate
 from app.utils.audit_utils import capture_audit_details, write_audit
 
-
 def _tl_query():
     return select(TaskList).options(selectinload(TaskList.project))
-
 
 async def get_task_list(db: AsyncSession, task_list_id: int) -> Optional[TaskList]:
     result = await db.execute(_tl_query().where(TaskList.id == task_list_id))
     return result.scalar_one_or_none()
-
 
 async def get_task_lists(
     db: AsyncSession,
@@ -32,7 +28,6 @@ async def get_task_lists(
         stmt = stmt.where(TaskList.project_id == project_id)
     result = await db.execute(stmt.offset(skip).limit(limit))
     return result.scalars().unique().all()
-
 
 async def create_task_list(
     db: AsyncSession,
@@ -55,7 +50,6 @@ async def create_task_list(
     await db.commit()
     return await get_task_list(db, db_tl.id)
 
-
 async def update_task_list(
     db: AsyncSession,
     task_list_id: int,
@@ -76,7 +70,6 @@ async def update_task_list(
     await db.commit()
     return await get_task_list(db, task_list_id)
 
-
 async def delete_task_list(
     db: AsyncSession,
     task_list_id: int,
@@ -94,7 +87,6 @@ async def delete_task_list(
     await db.delete(db_tl)
     await db.commit()
     return True
-
 
 async def search_task_lists(
     db: AsyncSession,

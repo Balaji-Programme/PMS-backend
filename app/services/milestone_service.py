@@ -1,4 +1,3 @@
-"""Milestone service — full async rewrite (SQLAlchemy 2.0 AsyncSession)."""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -12,7 +11,6 @@ from app.schemas.milestone import MilestoneCreate, MilestoneUpdate
 from app.utils.ids import generate_public_id
 from app.utils.audit_utils import capture_audit_details, write_audit
 
-
 def _milestone_query():
     return (
         select(Milestone)
@@ -22,11 +20,9 @@ def _milestone_query():
         )
     )
 
-
 async def get_milestone(db: AsyncSession, milestone_id: int) -> Optional[Milestone]:
     result = await db.execute(_milestone_query().where(Milestone.id == milestone_id))
     return result.scalar_one_or_none()
-
 
 async def get_milestones(
     db: AsyncSession,
@@ -39,7 +35,6 @@ async def get_milestones(
         stmt = stmt.where(Milestone.project_id == project_id)
     result = await db.execute(stmt.offset(skip).limit(limit))
     return result.scalars().unique().all()
-
 
 async def create_milestone(
     db: AsyncSession,
@@ -69,7 +64,6 @@ async def create_milestone(
     await db.commit()
     return await get_milestone(db, db_milestone.id)
 
-
 async def update_milestone(
     db: AsyncSession,
     milestone_id: int,
@@ -92,7 +86,6 @@ async def update_milestone(
     )
     await db.commit()
     return await get_milestone(db, milestone_id)
-
 
 async def delete_milestone(
     db: AsyncSession,

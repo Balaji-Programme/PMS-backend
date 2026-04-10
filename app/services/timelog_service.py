@@ -1,4 +1,3 @@
-"""TimeLog service — full async rewrite (SQLAlchemy 2.0 AsyncSession)."""
 from __future__ import annotations
 
 from typing import List, Optional
@@ -12,7 +11,6 @@ from app.models.task import Task
 from app.schemas.timelog import TimeLogCreate, TimeLogUpdate
 from app.utils.audit_utils import capture_audit_details, write_audit
 
-
 def _timelog_query():
     return (
         select(TimeLog)
@@ -24,11 +22,9 @@ def _timelog_query():
         )
     )
 
-
 async def get_timelog(db: AsyncSession, timelog_id: int) -> Optional[TimeLog]:
     result = await db.execute(_timelog_query().where(TimeLog.id == timelog_id))
     return result.scalar_one_or_none()
-
 
 async def get_timelogs(
     db: AsyncSession,
@@ -57,7 +53,6 @@ async def get_timelogs(
 
     result = await db.execute(stmt.offset(skip).limit(limit))
     return result.scalars().unique().all()
-
 
 async def create_timelog(
     db: AsyncSession,
@@ -89,7 +84,6 @@ async def create_timelog(
     await db.commit()
     return await get_timelog(db, db_timelog.id)
 
-
 async def update_timelog(
     db: AsyncSession,
     timelog_id: int,
@@ -111,7 +105,6 @@ async def update_timelog(
     await db.commit()
     return await get_timelog(db, timelog_id)
 
-
 async def delete_timelog(
     db: AsyncSession,
     timelog_id: int,
@@ -129,7 +122,6 @@ async def delete_timelog(
     await db.delete(db_timelog)
     await db.commit()
     return True
-
 
 async def create_timelogs_bulk(
     db: AsyncSession,
