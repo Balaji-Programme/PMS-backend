@@ -16,9 +16,12 @@ from app.core.config import settings
 
 logger = logging.getLogger("app.database")
 
+import ssl
+
 connect_args: dict = {}
 if "azure" in settings.MYSQL_SERVER:
-    connect_args = {"ssl": {"ssl_mode": "REQUIRED"}}
+    ssl_context = ssl.create_default_context()
+    connect_args = {"ssl": ssl_context}
 
 engine = create_async_engine(
     settings.ASYNC_DATABASE_URL,

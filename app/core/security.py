@@ -185,26 +185,24 @@ class ProjectRoleChecker:
         if current_user.role and current_user.role.name in FULL_ACCESS_ROLES:
             return current_user
 
-        from app.models.project import project_users
+        from app.models.project import ProjectMember
         assignment = (
             await db.execute(
-                select(project_users.c.role_id).where(
-                    project_users.c.project_id == project_id,
-                    project_users.c.user_id    == current_user.id,
+                select(ProjectMember).where(
+                    ProjectMember.project_id == project_id,
+                    ProjectMember.user_id    == current_user.id,
                 )
             )
-        ).first()
+        ).scalar_one_or_none()
 
         if not assignment:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this project.")
 
-        if not assignment.role_id:
+        if not assignment.project_profile:
             if "Member" in self.allowed_roles:
                 return current_user
         else:
-            from app.models.roles import Role
-            role = (await db.execute(select(Role).where(Role.id == assignment.role_id))).scalar_one_or_none()
-            if role and role.name in self.allowed_roles:
+            if assignment.project_profile in self.allowed_roles:
                 return current_user
 
         raise HTTPException(

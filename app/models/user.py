@@ -65,7 +65,7 @@ class User(AuditMixin, Base):
 
     teams = relationship("Team", secondary=user_team_link, back_populates="members")
     skills = relationship("Skill", secondary=user_skill_link, backref="users")
-    projects = relationship("Project", secondary="project_users", back_populates="users")
+    projects = relationship("Project", secondary="project_members", viewonly=True)
 
     managed_teams = relationship("Team", back_populates="lead", foreign_keys="Team.lead_email")
 

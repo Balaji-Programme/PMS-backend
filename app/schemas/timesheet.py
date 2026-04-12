@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date
 from decimal import Decimal
-from .project import ProjectBase
+from typing import Any
 from .user import UserBase
 
 class TimesheetBase(BaseModel):
@@ -30,7 +30,7 @@ class TimesheetResponse(TimesheetBase):
     project_id: int
     user_email: str
 
-    project: Optional[ProjectBase] = None
+    project: Optional[Any] = None
     user: Optional[UserBase] = None
 
     model_config = {"from_attributes": True}
