@@ -3,7 +3,7 @@ from app.models.roles import Role
 from app.models.user import User, user_team_link
 from app.models.team import Team
 from app.models.template import ProjectTemplate, TemplateTask
-from app.models.project import Project, project_users
+from app.models.project import Project, ProjectMember
 from app.models.task import Task
 from app.models.issue import Issue
 from app.models.timelog import TimeLog

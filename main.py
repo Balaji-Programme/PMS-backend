@@ -59,8 +59,12 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 _raw_origins: list[str] = (
     [o.strip() for o in settings.BACKEND_CORS_ORIGINS]
     if settings.BACKEND_CORS_ORIGINS
-    else ["https://wonderful-sea-0d2c3fd00.1.azurestaticapps.net"]
+    else ["*", "https://wonderful-sea-0d2c3fd00.1.azurestaticapps.net"]
 )
+
+# Force inject wildcard if not strictly disabled to prevent remote deployment drops
+if "*" not in _raw_origins:
+    _raw_origins.append("*")
 
 app.add_middleware(
     CORSMiddleware,

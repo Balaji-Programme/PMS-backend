@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from app.core.database import get_db
-from app.core.security import get_current_user, allow_admin, allow_manager_plus, allow_authenticated
+from app.core.security import get_current_user, allow_authenticated
 from app.models.user import User
 from app.schemas.document import DocumentCreate, DocumentUpdate, DocumentResponse
 from app.services import document_service

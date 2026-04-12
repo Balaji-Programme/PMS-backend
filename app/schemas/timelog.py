@@ -59,3 +59,6 @@ class TimeLogResponse(BaseModel):
 
     user: Optional[UserBase] = None
     created_by: Optional[UserBase] = None
+
+class TimeLogBulkCreate(BaseModel):
+    logs: List[TimeLogCreate]
