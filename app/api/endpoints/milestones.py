@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.core.database import get_db
+from app.core.database import get_sync_db
 from app.core.security import allow_authenticated, allow_team_lead_plus
 from app.core.dependencies import auto_populate_milestone
 from app.schemas.milestone import MilestoneCreate, MilestoneResponse, MilestoneUpdate
@@ -13,7 +13,7 @@ router = APIRouter(dependencies=[Depends(allow_authenticated)])
 @router.post("/", response_model=MilestoneResponse)
 def create_milestone(
     milestone: MilestoneCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_sync_db),
     current_user=Depends(allow_authenticated),
 ):
 
@@ -29,7 +29,7 @@ def read_milestones(
     project_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_sync_db),
 ):
     return milestone_service.get_milestones(
         db,
@@ -38,10 +38,28 @@ def read_milestones(
         project_id=project_id,
     )
 
+@router.get("/search", response_model=List[MilestoneResponse])
+def search_milestones(
+    q: str = Query(..., min_length=1),
+    project_id: Optional[int] = None,
+    limit: int = Query(50, gt=0, le=100),
+    db: Session = Depends(get_sync_db),
+):
+    from app.models.milestone import Milestone
+    from sqlalchemy import or_
+    stmt = (
+        db.query(Milestone)
+        .filter(Milestone.milestone_name.ilike(f"%{q}%"))
+    )
+    if project_id:
+        stmt = stmt.filter(Milestone.project_id == project_id)
+    return stmt.limit(limit).all()
+
+
 @router.get("/{milestone_id}", response_model=MilestoneResponse)
 def read_milestone(
     milestone_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_sync_db),
 ):
     db_milestone = milestone_service.get_milestone(db, milestone_id=milestone_id)
     if db_milestone is None:
@@ -52,7 +70,7 @@ def read_milestone(
 def update_milestone(
     milestone_id: int,
     milestone_in: MilestoneUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_sync_db),
     current_user=Depends(allow_authenticated),
 ):
     updated = milestone_service.update_milestone(
@@ -68,7 +86,7 @@ def update_milestone(
 @router.delete("/{milestone_id}")
 def delete_milestone(
     milestone_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_sync_db),
     current_user=Depends(allow_team_lead_plus),
 ):
 

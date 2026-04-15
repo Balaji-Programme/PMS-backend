@@ -55,4 +55,7 @@ class MilestoneResponse(BaseModel):
     end_date: Optional[date]
     completion_percentage: Optional[int]
 
+    task_count: int = 0
+    issue_count: int = 0
+
     owner: Optional[UserBase] = None

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 
 from app.models.user import User
@@ -20,23 +20,24 @@ def _user_query():
             selectinload(User.role),
             selectinload(User.status),
             selectinload(User.skills),
+            selectinload(User.manager),
         )
     )
 
-async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
-    result = await db.execute(_user_query().where(User.id == user_id))
+def get_user(db: Session, user_id: int) -> Optional[User]:
+    result = db.execute(_user_query().where(User.id == user_id))
     return result.scalar_one_or_none()
 
-async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
-    result = await db.execute(select(User).where(User.email == email))
+def get_user_by_email(db: Session, email: str) -> Optional[User]:
+    result = db.execute(select(User).where(User.email == email))
     return result.scalar_one_or_none()
 
-async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User]:
-    result = await db.execute(select(User).where(User.username == username))
+def get_user_by_username(db: Session, username: str) -> Optional[User]:
+    result = db.execute(select(User).where(User.username == username))
     return result.scalar_one_or_none()
 
-async def get_users(
-    db: AsyncSession,
+def get_users(
+    db: Session,
     skip: int = 0,
     limit: int = 100,
     search: Optional[str] = None,
@@ -59,12 +60,12 @@ async def get_users(
         stmt = stmt.where(User.role_id.in_(role_ids))
 
     count_stmt = select(func.count()).select_from(stmt.subquery())
-    total = (await db.execute(count_stmt)).scalar() or 0
-    data = (await db.execute(stmt.offset(skip).limit(limit))).scalars().unique().all()
+    total = (db.execute(count_stmt)).scalar() or 0
+    data = (db.execute(stmt.offset(skip).limit(limit))).scalars().unique().all()
     return {"total": total, "data": data}
 
-async def create_user(
-    db: AsyncSession,
+def create_user(
+    db: Session,
     user: UserCreate,
     actor_id: Optional[str] = None,
 ) -> User:
@@ -92,26 +93,26 @@ async def create_user(
     )
 
     if user.skill_ids:
-        skills = (await db.execute(select(Skill).where(Skill.id.in_(user.skill_ids)))).scalars().all()
+        skills = (db.execute(select(Skill).where(Skill.id.in_(user.skill_ids)))).scalars().all()
         db_user.skills.extend(skills)
 
     db.add(db_user)
-    await db.flush()
+    db.flush()
 
-    await write_audit(
+    write_audit(
         db, actor_id, "CREATE", "users", db_user.id, db_user.id,
         [{"field_name": "email", "old_value": None, "new_value": user.email}],
     )
-    await db.commit()
-    return await get_user(db, db_user.id)
+    db.commit()
+    return get_user(db, db_user.id)
 
-async def update_user(
-    db: AsyncSession,
+def update_user(
+    db: Session,
     user_id: int,
     user_update: UserUpdate,
     actor_id: Optional[str] = None,
 ) -> Optional[User]:
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = db.execute(select(User).where(User.id == user_id))
     db_user = result.scalar_one_or_none()
     if not db_user:
         return None
@@ -121,38 +122,38 @@ async def update_user(
 
     skill_ids = update_data.pop("skill_ids", None)
     if skill_ids is not None:
-        skills = (await db.execute(select(Skill).where(Skill.id.in_(skill_ids)))).scalars().all()
+        skills = (db.execute(select(Skill).where(Skill.id.in_(skill_ids)))).scalars().all()
         db_user.skills = list(skills)
 
     for key, value in update_data.items():
         setattr(db_user, key, value)
 
-    await write_audit(db, actor_id, "UPDATE", "users", user_id, user_id, changes)
-    await db.commit()
-    return await get_user(db, user_id)
+    write_audit(db, actor_id, "UPDATE", "users", user_id, user_id, changes)
+    db.commit()
+    return get_user(db, user_id)
 
-async def delete_user(
-    db: AsyncSession,
+def delete_user(
+    db: Session,
     user_id: int,
     actor_id: Optional[str] = None,
 ) -> bool:
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = db.execute(select(User).where(User.id == user_id))
     db_user = result.scalar_one_or_none()
     if not db_user:
         return False
-    await write_audit(
+    write_audit(
         db, actor_id, "DELETE", "users", user_id, user_id,
         [{"field_name": "email", "old_value": db_user.email, "new_value": None}],
     )
-    await db.delete(db_user)
-    await db.commit()
+    db.delete(db_user)
+    db.commit()
     return True
 
-async def search_users(db: AsyncSession, query: str, limit: int = 20) -> List[User]:
+def search_users(db: Session, query: str, limit: int = 20) -> List[User]:
     if not query:
         return []
     q = f"%{query}%"
-    result = await db.execute(
+    result = db.execute(
         _user_query().where(
             or_(
                 User.first_name.ilike(q),
@@ -165,46 +166,61 @@ async def search_users(db: AsyncSession, query: str, limit: int = 20) -> List[Us
     )
     return result.scalars().unique().all()
 
-async def upsert_o365_user(
-    db: AsyncSession,
+def upsert_o365_user(
+    db: Session,
     o365_id: str,
-    email: str,
+    email: Optional[str],
     first_name: str,
     last_name: str,
     display_name: Optional[str] = None,
 ) -> User:
-    user = (await db.execute(select(User).where(User.o365_id == o365_id))).scalar_one_or_none()
+    if not o365_id:
+        raise ValueError("o365_id is required for SSO upsert")
+
+
+    user = (db.execute(select(User).where(User.o365_id == o365_id))).scalar_one_or_none()
+
 
     if not user and email:
-        user = (await db.execute(select(User).where(User.email == email.lower()))).scalar_one_or_none()
+        user = (db.execute(select(User).where(User.email == email.lower()))).scalar_one_or_none()
 
     if user:
-        user.o365_id  = o365_id
+
+        user.o365_id = o365_id
         user.is_synced = True
+        
+
         if not user.role_id:
-            default_role = (await db.execute(select(Role).where(Role.name == "Employee"))).scalar_one_or_none()
+            default_role = (db.execute(select(Role).where(Role.name == "Employee"))).scalar_one_or_none()
             if default_role:
                 user.role_id = default_role.id
+        
+
         if not user.status_id:
             from app.models.masters import UserStatus
-            default_status = (await db.execute(select(UserStatus).where(UserStatus.name == "Active"))).scalar_one_or_none()
+            default_status = (db.execute(select(UserStatus).where(UserStatus.name == "Active"))).scalar_one_or_none()
             if default_status:
                 user.status_id = default_status.id
-        if first_name:
-            user.first_name = first_name
-        if last_name:
-            user.last_name = last_name
-        if display_name:
-            user.display_name = display_name
-        await db.commit()
-        await db.refresh(user)
+
+        if first_name: user.first_name = first_name
+        if last_name: user.last_name = last_name
+        if display_name: user.display_name = display_name
+        
+        db.commit()
+        db.refresh(user)
         return user
 
-    default_role = (await db.execute(select(Role).where(Role.name == "Employee"))).scalar_one_or_none()
+
+    if not email:
+        raise ValueError("Email is required to create a new SSO user record.")
+
+    default_role = (db.execute(select(Role).where(Role.name == "Employee"))).scalar_one_or_none()
+    
+
     base_username = email.split("@")[0].lower().replace(".", "_")
     username = base_username
     counter = 1
-    while (await db.execute(select(User.id).where(User.username == username))).scalar_one_or_none():
+    while (db.execute(select(User.id).where(User.username == username))).scalar_one_or_none():
         username = f"{base_username}_{counter}"
         counter += 1
 
@@ -221,7 +237,13 @@ async def upsert_o365_user(
         is_external  = False,
         role_id      = default_role.id if default_role else None,
     )
+    
     db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
+    try:
+        db.commit()
+        db.refresh(new_user)
+    except Exception as e:
+        db.rollback()
+        raise e
+        
     return new_user

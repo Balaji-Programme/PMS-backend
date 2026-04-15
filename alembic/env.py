@@ -11,7 +11,7 @@ from alembic import context
 
 from app.core.config import settings
 from app.core.database import Base
-from app.models import * # Import all models to register them with Base
+from app.models import *
 
 config = context.config
 
@@ -38,8 +38,8 @@ def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = settings.DATABASE_URL
     
-    from app.core.database import engine
-    connectable = engine
+    from app.core.database import sync_engine
+    connectable = sync_engine
 
     with connectable.connect() as connection:
         context.configure(

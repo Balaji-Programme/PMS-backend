@@ -11,6 +11,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.api.router import api_router
+
 from app.utils.exceptions import add_exception_handlers
 from app.models import *
 from fastapi.staticfiles import StaticFiles
@@ -23,10 +24,9 @@ IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not IS_PRODUCTION:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        Base.metadata.create_all(bind=engine)
     yield
-    await engine.dispose()
+    engine.dispose()
 
 app = FastAPI(
     title    = settings.PROJECT_NAME,
@@ -56,15 +56,20 @@ app.add_middleware(
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-_raw_origins: list[str] = (
-    [o.strip() for o in settings.BACKEND_CORS_ORIGINS]
-    if settings.BACKEND_CORS_ORIGINS
-    else ["*", "https://wonderful-sea-0d2c3fd00.1.azurestaticapps.net"]
-)
+_raw_origins: list[str] = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
-# Force inject wildcard if not strictly disabled to prevent remote deployment drops
-if "*" not in _raw_origins:
-    _raw_origins.append("*")
+if settings.BACKEND_CORS_ORIGINS:
+    _raw_origins.extend([o.strip() for o in settings.BACKEND_CORS_ORIGINS])
+
+
+
+if IS_PRODUCTION:
+    _raw_origins = [o for o in _raw_origins if "azure" in o or "technorucs" in o] or ["https://trucszohoreplica.azurewebsites.net"]
 
 app.add_middleware(
     CORSMiddleware,

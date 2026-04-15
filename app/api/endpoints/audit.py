@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from app.core.database import get_db
+from app.core.database import get_sync_db
 from app.core.security import allow_pm
 from app.models.audit import AuditLogs
 from app.schemas.audit import AuditLogResponse
@@ -14,7 +14,7 @@ def read_audit_logs(
     limit: int = 100,
     resource_name: Optional[str] = None,
     user_id: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_sync_db)
 ):
     query = db.query(AuditLogs)
     if resource_name:

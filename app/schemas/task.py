@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.user import UserBase
+from app.schemas.masters import MasterLookupResponse
 
 class TaskCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -15,13 +16,14 @@ class TaskCreate(BaseModel):
 
     project_id: Optional[int]   = None
     task_list_id: Optional[int] = None
+    milestone_id: Optional[int] = None
     associated_team_id: Optional[int] = None
 
     assignee_id: Optional[int]   = None
     owner_id: Optional[int]      = None
 
-    status: Optional[str]   = None
-    priority: Optional[str] = None
+    status_id: Optional[int]   = None
+    priority_id: Optional[int] = None
     tags: Optional[str]     = None
 
     start_date: Optional[date]      = None
@@ -43,11 +45,12 @@ class TaskUpdate(BaseModel):
     description: Optional[str]          = None
     project_id: Optional[int]           = None
     task_list_id: Optional[int]         = None
+    milestone_id: Optional[int]         = None
     associated_team_id: Optional[int]   = None
     assignee_id: Optional[int]          = None
     owner_id: Optional[int]             = None
-    status: Optional[str]               = None
-    priority: Optional[str]             = None
+    status_id: Optional[int]            = None
+    priority_id: Optional[int]          = None
     tags: Optional[str]                 = None
     start_date: Optional[date]          = None
     due_date: Optional[date]            = None
@@ -71,14 +74,23 @@ class TaskResponse(BaseModel):
 
     project_id: Optional[int]
     task_list_id: Optional[int]
+    milestone_id: Optional[int] = None
     associated_team_id: Optional[int]
 
     assignee_id: Optional[int]
     owner_id: Optional[int]
     created_by_id: Optional[int]
 
-    status: Optional[str]
-    priority: Optional[str]
+    status_id: Optional[int] = None
+    priority_id: Optional[int] = None
+    
+    status_master: Optional[MasterLookupResponse] = None
+    priority_master: Optional[MasterLookupResponse] = None
+    
+
+    status: Optional[dict] = None
+    priority: Optional[dict] = None
+    
     tags: Optional[str]
 
     start_date: Optional[date]
@@ -98,25 +110,13 @@ class TaskResponse(BaseModel):
     single_owner: Optional[UserBase] = None
     creator: Optional[UserBase]      = None
 
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     team_name: Optional[str] = None
 
     owners: List[UserBase]    = Field(default_factory=list)
     assignees: List[UserBase] = Field(default_factory=list)
-
-    @model_validator(mode='before')
-    @classmethod
-    def _resolve_team_name(cls, values: any) -> any:
-        if hasattr(values, 'associated_team') and values.associated_team is not None:
-            
-            object.__setattr__ if hasattr(values, '__dict__') else None
-            try:
-                values.__dict__['team_name'] = values.associated_team.name
-            except Exception:
-                pass
-        return values
 
 class TaskListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

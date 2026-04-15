@@ -5,11 +5,11 @@ from typing import List, Optional
 
 logger = logging.getLogger("app.teams_automation")
 
-async def create_ms_team_for_project(
+def create_ms_team_for_project(
     project_name: str,
     member_emails: List[str],
     project_id: Optional[int] = None,
-) -> None:
+) -> Optional[str]:
     import httpx
     from app.core.config import settings
 
@@ -22,12 +22,12 @@ async def create_ms_team_for_project(
             "MS Teams automation skipped for project '%s' — Azure credentials not configured.",
             project_name,
         )
-        return
+        return None
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        with httpx.Client(timeout=30.0) as client:
             
-            token_resp = await client.post(
+            token_resp = client.post(
                 f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
                 data={
                     "grant_type":    "client_credentials",
@@ -44,7 +44,7 @@ async def create_ms_team_for_project(
                 "Content-Type":  "application/json",
             }
 
-            create_resp = await client.post(
+            create_resp = client.post(
                 "https://graph.microsoft.com/v1.0/teams",
                 headers=headers,
                 json={
@@ -62,18 +62,18 @@ async def create_ms_team_for_project(
                     "Failed to create MS Team for project '%s': %s %s",
                     project_name, create_resp.status_code, create_resp.text,
                 )
-                return
+                return None
 
             team_id = create_resp.headers.get("location", "").split("/teams('")[-1].rstrip("')")
             if not team_id:
                 logger.warning("MS Team created for '%s' but could not parse team_id from Location header.", project_name)
-                return
+                return None
 
             logger.info("MS Team created: team_id=%s for project='%s'", team_id, project_name)
 
             for email in member_emails:
                 try:
-                    member_resp = await client.post(
+                    member_resp = client.post(
                         f"https://graph.microsoft.com/v1.0/teams/{team_id}/members",
                         headers=headers,
                         json={
@@ -88,6 +88,7 @@ async def create_ms_team_for_project(
                     logger.warning("Exception adding %s to MS Team: %s", email, member_exc)
 
             logger.info("MS Teams automation complete for project='%s': %d members processed.", project_name, len(member_emails))
+            return team_id
 
     except Exception as exc:
         logger.error(
@@ -95,3 +96,4 @@ async def create_ms_team_for_project(
             project_name, project_id, exc,
             exc_info=True,
         )
+        return None
