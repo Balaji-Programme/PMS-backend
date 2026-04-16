@@ -15,7 +15,14 @@ def create_task_list(
     db: Session = Depends(get_sync_db),
     current_user = Depends(allow_authenticated)
 ):
-    return task_list_service.create_task_list(db=db, task_list=task_list, actor_id=current_user.o365_id or str(current_user.id))
+    try:
+        return task_list_service.create_task_list(db=db, task_list=task_list, actor_id=current_user.o365_id or str(current_user.id))
+    except Exception as e:
+        import traceback
+        err = traceback.format_exc()
+        with open("error_log.txt", "a") as f:
+            f.write("\nTASKLIST ERROR:\n" + err)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/search", response_model=List[TaskListResponse])
 def search_task_lists(

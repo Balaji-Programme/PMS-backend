@@ -12,7 +12,7 @@ from app.models.issue import Issue
 from app.models.milestone import Milestone
 from app.models.template import ProjectTemplate, TemplateTask
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectSyncUpdate
-from app.utils.ids import generate_public_id
+from app.utils.ids import generate_public_id, get_next_project_id
 from app.utils.audit_utils import capture_audit_details, write_audit
 
 
@@ -169,7 +169,7 @@ def create_project(
     project: ProjectCreate,
     actor_id: str,
 ) -> Project:
-    public_id = generate_public_id("PRJ-")
+    public_id = get_next_project_id(db, Project)
 
     db_project = Project(
         public_id               = public_id,
@@ -436,15 +436,27 @@ def clone_from_template(
     project_id: int,
     template_id: int,
 ) -> None:
+    from app.utils.ids import get_next_sequence_id
     
+    # Get project name for sequence prefix
+    project = db.execute(select(Project).where(Project.id == project_id)).scalar_one_or_none()
+    project_name = project.project_name if project else ""
+
     tmpl_tasks_result = db.execute(
         select(TemplateTask)
         .where(TemplateTask.template_id == template_id)
         .order_by(TemplateTask.order_index)
     )
-    for tt in tmpl_tasks_result.scalars().all():
+    
+    tasks_to_add = tmpl_tasks_result.scalars().all()
+    for tt in tasks_to_add:
+        # We need to manually increment since we're in a loop adding multiple
+        # Actually get_next_sequence_id queries the DB. To avoid same ID for all if we don't flush,
+        # we should either flush inside the loop or generate manually.
+        # Let's flush after each for simplicity ensuring uniqueness.
+        pid = get_next_sequence_id(db, Task, project_name, project_id, "T")
         db.add(Task(
-            public_id       = generate_public_id("TSK-"),
+            public_id       = pid,
             task_name       = tt.title,
             description     = tt.description,
             project_id      = project_id,
@@ -453,5 +465,6 @@ def clone_from_template(
             billing_type    = tt.billing_type or "Billable",
             tags            = tt.tags,
         ))
-    db.flush()
+        db.flush()
+    db.commit()
 

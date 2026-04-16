@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Any
+from typing import Optional
 
 class TaskListBase(BaseModel):
     name: str
@@ -13,9 +13,17 @@ class TaskListUpdate(BaseModel):
     description: Optional[str] = None
     project_id: Optional[int] = None
 
+class ProjectMin(BaseModel):
+    id: int
+    project_name: str
+    customer_name: Optional[str] = None
+    account_name: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
 class TaskListResponse(TaskListBase):
     id: int
     project_id: int
-    project: Optional[Any] = None
+    project: Optional[ProjectMin] = None
 
     model_config = {"from_attributes": True}

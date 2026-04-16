@@ -46,33 +46,40 @@ def create_project_endpoint(
     current_user=Depends(allow_pm),
 ):
 
-    if not project.owner_id:
-        project.owner_id = current_user.id
+    try:
+        if not project.owner_id:
+            project.owner_id = current_user.id
 
-    db_project = project_service.create_project(
-        db=db, project=project, actor_id=current_user.public_id
-    )
+        db_project = project_service.create_project(
+            db=db, project=project, actor_id=current_user.public_id
+        )
 
+        member_emails = project.user_emails or []
+        def background_teams_worker(proj_name: str, emails: List[str], proj_id: int):
+            from app.core.database import SessionLocal
+            with SessionLocal() as db_session:
+                from app.services.teams_automation import create_ms_team_for_project
+                team_id = create_ms_team_for_project(proj_name, emails, proj_id)
+                if team_id:
+                    proj = project_service.get_project(db_session, proj_id)
+                    if proj:
+                        proj.ms_teams_group_id = team_id
+                        db_session.commit()
 
-    member_emails = project.user_emails or []
-    def background_teams_worker(proj_name: str, emails: List[str], proj_id: int):
-        from app.core.database import SessionLocal
-        with SessionLocal() as db_session:
-            team_id = create_ms_team_for_project(proj_name, emails, proj_id)
-            if team_id:
-                proj = project_service.get_project(db_session, proj_id)
-                if proj:
-                    proj.ms_teams_group_id = team_id
-                    db_session.commit()
+        background_tasks.add_task(
+            background_teams_worker,
+            proj_name  = db_project.project_name,
+            emails     = member_emails,
+            proj_id    = db_project.id,
+        )
 
-    background_tasks.add_task(
-        background_teams_worker,
-        proj_name  = db_project.project_name,
-        emails     = member_emails,
-        proj_id    = db_project.id,
-    )
-
-    return db_project
+        return db_project
+    except Exception as e:
+        import traceback
+        err = traceback.format_exc()
+        with open("error_log.txt", "w") as f:
+            f.write(err)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/search", response_model=List[ProjectResponse])

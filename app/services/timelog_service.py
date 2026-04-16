@@ -9,6 +9,8 @@ from app.models.timelog import TimeLog
 from app.models.task import Task
 from app.models.user import User
 from app.schemas.timelog import TimeLogCreate, TimeLogUpdate
+from app.utils.ids import generate_public_id, get_next_sequence_id
+from app.models.project import Project
 from app.utils.audit_utils import capture_audit_details, write_audit
 
 
@@ -68,7 +70,15 @@ def create_timelog(
     actor_id: Optional[str] = None,
     created_by_id: Optional[int] = None,
 ) -> TimeLog:
+    project = None
+    if timelog.project_id:
+        project = db.execute(select(Project).where(Project.id == timelog.project_id)).scalar_one_or_none()
+        
+    project_name = project.project_name if project else ""
+    public_id = get_next_sequence_id(db, TimeLog, project_name, timelog.project_id, "TL", True) if timelog.project_id else generate_public_id("TL-")
+
     db_timelog = TimeLog(
+        public_id       = public_id,
         user_id         = timelog.user_id,
         created_by_id   = created_by_id,
         project_id      = timelog.project_id,
@@ -152,7 +162,16 @@ def create_timelogs_bulk(
     for log in timelogs:
         if (log.daily_log_hours or 0) <= 0:
             continue
+            
+        project = None
+        if log.project_id:
+            project = db.execute(select(Project).where(Project.id == log.project_id)).scalar_one_or_none()
+            
+        project_name = project.project_name if project else ""
+        public_id = get_next_sequence_id(db, TimeLog, project_name, log.project_id, "TL", True) if log.project_id else generate_public_id("TL-")
+
         db_log = TimeLog(
+            public_id       = public_id,
             user_id         = log.user_id,
             created_by_id   = created_by_id,
             project_id      = log.project_id,

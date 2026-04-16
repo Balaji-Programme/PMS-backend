@@ -57,6 +57,7 @@ class TimeLogResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    public_id: Optional[str] = None
     log_title: Optional[str]
 
     user_id: int

@@ -10,7 +10,8 @@ from app.models.issue import Issue
 from app.models.document import Document
 from app.models.user import User
 from app.schemas.issue import IssueCreate, IssueUpdate
-from app.utils.ids import generate_public_id
+from app.utils.ids import generate_public_id, get_next_sequence_id
+from app.models.project import Project
 from app.utils.audit_utils import capture_audit_details, write_audit
 
 
@@ -70,7 +71,13 @@ def create_issue(
     actor_id: Optional[str] = None,
     created_by_id: Optional[int] = None,
 ) -> Issue:
-    public_id = generate_public_id("ISS-")
+    project = None
+    if issue.project_id:
+        project = db.execute(select(Project).where(Project.id == issue.project_id)).scalar_one_or_none()
+    
+    project_name = project.project_name if project else ""
+    public_id = get_next_sequence_id(db, Issue, project_name, issue.project_id, "I") if issue.project_id else generate_public_id("ISS-")
+    
     db_issue = Issue(
         public_id          = public_id,
         bug_name           = issue.bug_name,

@@ -53,7 +53,7 @@ class Task(AuditMixin, Base):
     due_date: Mapped[Optional[date]]        = mapped_column(Date, nullable=True)
     completion_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     
-    duration: Mapped[Optional[int]]              = mapped_column(Integer, nullable=True)
+    _duration: Mapped[Optional[int]] = mapped_column("duration", Integer, nullable=True)
     completion_percentage: Mapped[Optional[int]] = mapped_column(Integer, default=0, nullable=True)
 
     estimated_hours: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
@@ -92,13 +92,13 @@ class Task(AuditMixin, Base):
 
     @hybrid_property
     def difference(self) -> float:
-        w_hours = float(self.work_hours or 0)
+        plan_hours = float(self.work_hours or self.estimated_hours or 0)
         t_total = float(self.cached_timelog_total or 0)
-        return round(w_hours - t_total, 2)
+        return round(plan_hours - t_total, 2)
         
     @difference.expression
     def difference(cls):
-        return func.coalesce(cls.work_hours, 0) - func.coalesce(cls.cached_timelog_total, 0)
+        return func.coalesce(cls.work_hours, cls.estimated_hours, 0) - func.coalesce(cls.cached_timelog_total, 0)
 
     @property
     def status(self) -> Optional[dict]:
@@ -124,8 +124,14 @@ class Task(AuditMixin, Base):
             }
         return None
 
-    @property
-    def calculated_duration(self) -> Optional[int]:
+    @hybrid_property
+    def duration(self) -> Optional[int]:
+        if self._duration is not None:
+            return self._duration
         if self.due_date and self.start_date:
             return (self.due_date - self.start_date).days
         return None
+
+    @duration.setter
+    def duration(self, value: Optional[int]):
+        self._duration = value

@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.task import Task
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate
-from app.utils.ids import generate_public_id
+from app.utils.ids import generate_public_id, get_next_sequence_id
+from app.models.project import Project
 from app.utils.audit_utils import capture_audit_details, write_audit
 
 
@@ -94,8 +95,15 @@ def create_task(
     actor_id: Optional[str] = None,
     created_by_id: Optional[int] = None,
 ) -> Task:
+    project = None
+    if task.project_id:
+        project = db.execute(select(Project).where(Project.id == task.project_id)).scalar_one_or_none()
+    
+    project_name = project.project_name if project else ""
+    public_id = get_next_sequence_id(db, Task, project_name, task.project_id, "T") if task.project_id else generate_public_id("TSK-")
+
     db_task = Task(
-        public_id             = generate_public_id("TSK-"),
+        public_id             = public_id,
         task_name             = task.task_name,
         description           = task.description,
         project_id            = task.project_id,
@@ -105,8 +113,8 @@ def create_task(
         assignee_id           = task.assignee_id,
         owner_id              = task.owner_id,
         created_by_id         = created_by_id,
-        status                = task.status,
-        priority              = task.priority,
+        status_id             = task.status_id,
+        priority_id           = task.priority_id,
         tags                  = task.tags,
         start_date            = task.start_date,
         due_date              = task.due_date,

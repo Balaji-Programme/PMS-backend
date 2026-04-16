@@ -64,6 +64,13 @@ class TaskUpdate(BaseModel):
     owner_emails: Optional[List[str]]    = None
     assignee_emails: Optional[List[str]] = None
 
+class ProjectMin(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    project_name: str
+    customer_name: Optional[str] = None
+    account_name: Optional[str] = None
+
 class TaskResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -73,6 +80,8 @@ class TaskResponse(BaseModel):
     description: Optional[str]
 
     project_id: Optional[int]
+    project: Optional[ProjectMin] = None
+
     task_list_id: Optional[int]
     milestone_id: Optional[int] = None
     associated_team_id: Optional[int]

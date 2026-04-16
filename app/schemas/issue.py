@@ -65,6 +65,13 @@ class IssueUpdate(BaseModel):
     estimated_hours: Optional[float] = None
 
 
+class ProjectMin(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    project_name: str
+    customer_name: Optional[str] = None
+    account_name: Optional[str] = None
+
 class IssueResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -74,6 +81,8 @@ class IssueResponse(BaseModel):
     description: Optional[str]
 
     project_id: Optional[int]
+    project: Optional[ProjectMin] = None
+
     milestone_id: Optional[int] = None
     associated_team_id: Optional[int]
     assignee_id: Optional[int]

@@ -16,6 +16,7 @@ class TimeLog(AuditMixin, Base):
     __tablename__ = "timelogs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[Optional[str]] = mapped_column(String(50), index=True, nullable=True)
     log_title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
