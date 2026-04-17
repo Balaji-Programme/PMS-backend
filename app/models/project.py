@@ -30,6 +30,9 @@ class ProjectMember(Base):
 
     project_profile: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     portal_profile: Mapped[Optional[str]]  = mapped_column(String(100), nullable=True)
+    role_in_project: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    invitation_status: Mapped[str]         = mapped_column(String(50), default="Accepted", server_default="Accepted")
+    is_owner: Mapped[bool]                 = mapped_column(Boolean, default=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=func.now())
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
@@ -65,16 +68,21 @@ class Project(AuditMixin, Base):
     status: Mapped[str]   = mapped_column(String(50), default="Active")
     priority: Mapped[str] = mapped_column(String(20), default="Medium")
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    
+    tags: Mapped[Optional[str]]        = mapped_column(String(500), nullable=True)
+
     estimated_hours: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0)
     actual_hours: Mapped[float]    = mapped_column(Numeric(10, 2), default=0.0)
-    
+
     actual_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     actual_end_date: Mapped[Optional[date]]   = mapped_column(Date, nullable=True)
 
-    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
-    is_template: Mapped[bool] = mapped_column(Boolean, default=False)
-    is_group: Mapped[bool]    = mapped_column(Boolean, default=False)
+
+    ms_teams_group_id: Mapped[Optional[str]]   = mapped_column(String(255), nullable=True, index=True)
+    ms_teams_channel_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    is_archived: Mapped[bool]  = mapped_column(Boolean, default=False)
+    is_template: Mapped[bool]  = mapped_column(Boolean, default=False)
+    is_group: Mapped[bool]     = mapped_column(Boolean, default=False)
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     project_manager = relationship("User", foreign_keys=[project_manager_id], lazy="selectin")

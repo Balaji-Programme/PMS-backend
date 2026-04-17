@@ -8,22 +8,22 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.database import get_db
+from app.core.database import get_sync_db
 
 pwd_context    = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _bearer_scheme = HTTPBearer(auto_error=False)
 
+ROLE_SUPER_ADMIN     = "Super Admin"
 ROLE_ADMIN           = "Admin"
-ROLE_PROJECT_MANAGER = "Project Manager"
 ROLE_TEAM_LEAD       = "Team Lead"
 ROLE_EMPLOYEE        = "Employee"
 
-FULL_ACCESS_ROLES     = [ROLE_ADMIN, ROLE_PROJECT_MANAGER]
-TEAM_LEAD_PLUS_ROLES  = [ROLE_ADMIN, ROLE_PROJECT_MANAGER, ROLE_TEAM_LEAD]
-ALL_ROLES             = [ROLE_ADMIN, ROLE_PROJECT_MANAGER, ROLE_TEAM_LEAD, ROLE_EMPLOYEE]
+FULL_ACCESS_ROLES     = [ROLE_SUPER_ADMIN, ROLE_ADMIN]
+TEAM_LEAD_PLUS_ROLES  = [ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_TEAM_LEAD]
+ALL_ROLES             = [ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_TEAM_LEAD, ROLE_EMPLOYEE]
 
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
@@ -44,9 +44,9 @@ def create_access_token(
         algorithm=settings.ALGORITHM,
     )
 
-async def get_current_user(
+def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_sync_db),
 ):
     if not credentials:
         raise HTTPException(
@@ -68,7 +68,8 @@ async def get_current_user(
         )
 
     from app.models.user import User
-    result = await db.execute(select(User).where(User.id == user_id))
+    from sqlalchemy.orm import selectinload
+    result = db.execute(select(User).options(selectinload(User.role)).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if not user or user.is_deleted:
@@ -91,7 +92,7 @@ class RoleChecker:
     def __init__(self, allowed_roles: List[str]):
         self.allowed_roles = allowed_roles
 
-    async def __call__(self, current_user=Depends(get_current_user)):
+    def __call__(self, current_user=Depends(get_current_user)):
         if current_user.role and current_user.role.name in self.allowed_roles:
             return current_user
         raise HTTPException(
@@ -103,22 +104,22 @@ allow_pm             = RoleChecker(FULL_ACCESS_ROLES)
 allow_team_lead_plus = RoleChecker(TEAM_LEAD_PLUS_ROLES)
 allow_all_roles      = RoleChecker(ALL_ROLES)
 
-async def allow_authenticated(current_user=Depends(get_current_user)):
+def allow_authenticated(current_user=Depends(get_current_user)):
     return current_user
 
 class CheckProjectOwner:
     def __init__(self, allowed_roles: List[str]):
         self.allowed_roles = allowed_roles
 
-    async def __call__(
+    def __call__(
         self,
         project_id: int,
         current_user=Depends(get_current_user),
-        db: AsyncSession = Depends(get_db),
+        db: Session = Depends(get_sync_db),
     ):
         from app.models.project import Project
 
-        result   = await db.execute(select(Project.owner_id).where(Project.id == project_id))
+        result   = db.execute(select(Project.owner_id).where(Project.id == project_id))
         owner_id = result.scalar_one_or_none()
 
         if owner_id is not None and owner_id == current_user.id:
@@ -136,16 +137,16 @@ class CheckTaskOwner:
     def __init__(self, allowed_roles: List[str]):
         self.allowed_roles = allowed_roles
         
-    async def __call__(
+    def __call__(
         self,
         task_id: int,
         current_user=Depends(get_current_user),
-        db: AsyncSession = Depends(get_db),
+        db: Session = Depends(get_sync_db),
     ):
         from app.models.task import Task
         from app.models.project import Project
         
-        result = await db.execute(
+        result = db.execute(
             select(Task.assignee_id, Project.owner_id)
             .outerjoin(Project, Project.id == Task.project_id)
             .where(Task.id == task_id)
@@ -176,18 +177,18 @@ class ProjectRoleChecker:
     def __init__(self, allowed_roles: List[str]):
         self.allowed_roles = allowed_roles
 
-    async def __call__(
+    def __call__(
         self,
         project_id: int,
         current_user=Depends(get_current_user),
-        db: AsyncSession = Depends(get_db),
+        db: Session = Depends(get_sync_db),
     ):
         if current_user.role and current_user.role.name in FULL_ACCESS_ROLES:
             return current_user
 
         from app.models.project import ProjectMember
         assignment = (
-            await db.execute(
+            db.execute(
                 select(ProjectMember).where(
                     ProjectMember.project_id == project_id,
                     ProjectMember.user_id    == current_user.id,

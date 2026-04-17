@@ -13,4 +13,7 @@ class Role(AuditMixin, Base):
 
     @property
     def users_count(self) -> int:
+        from sqlalchemy.orm.attributes import instance_state
+        if 'users' in instance_state(self).unloaded:
+            return 0
         return len(self.users)

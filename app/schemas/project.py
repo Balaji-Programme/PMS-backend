@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -9,6 +9,46 @@ from app.models.project import BillingModel, ProjectType
 from app.schemas.user import UserBase
 from app.schemas.masters import MasterResponse
 
+
+
+
+
+
+class ProjectMemberResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    project_id: int
+    user_id: int
+    project_profile: Optional[str]  = None
+    portal_profile: Optional[str]   = None
+    role_in_project: Optional[str]  = None
+    invitation_status: str          = "Accepted"
+    is_owner: bool                  = False
+    created_at: Optional[datetime]  = None
+
+    user: Optional[UserBase] = None
+
+
+class ProjectMemberCreate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: Optional[int] = None
+    user_email: Optional[str] = None
+    project_profile: str = "Member"
+    portal_profile: str = "User"
+
+
+class ProjectMemberUpdate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    project_profile: Optional[str] = None
+    portal_profile: Optional[str] = None
+
+
+
+
+
+
 class ProjectCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -16,28 +56,29 @@ class ProjectCreate(BaseModel):
     project_name: str       = Field(..., min_length=1)
     customer_name: str      = Field(..., min_length=1)
     project_id_sync: str    = Field(..., min_length=1)
-    
+
     billing_model: BillingModel
     project_type: ProjectType
-    
+
     expected_start_date: Optional[date] = None
     expected_end_date: Optional[date]   = None
 
     client_name: Optional[str]              = None
     description: Optional[str]              = None
     project_status_external: Optional[str]  = None
-    
+    tags: Optional[str]                     = None
+
     owner_id: Optional[int]                 = None
     project_manager_id: Optional[int]       = None
     delivery_head_id: Optional[int]         = None
     template_id: Optional[int]              = None
-    
+
     status: Optional[str]                   = "Active"
     priority: Optional[str]                 = "Medium"
 
     estimated_hours: Optional[float]        = 0.0
     actual_hours: Optional[float]           = 0.0
-    
+
     actual_start_date: Optional[date]       = None
     actual_end_date: Optional[date]         = None
 
@@ -47,6 +88,7 @@ class ProjectCreate(BaseModel):
 
     user_emails: List[str]                  = Field(default_factory=list)
 
+
 class ProjectUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -54,18 +96,19 @@ class ProjectUpdate(BaseModel):
     project_name: Optional[str]       = None
     customer_name: Optional[str]      = None
     client_name: Optional[str]        = None
-    
+    tags: Optional[str]               = None
+
     billing_model: Optional[BillingModel]   = None
     project_type: Optional[ProjectType]     = None
     project_status_external: Optional[str]  = None
-    
+
     expected_start_date: Optional[date] = None
     expected_end_date: Optional[date]   = None
-    
+
     owner_id: Optional[int]                 = None
     project_manager_id: Optional[int]       = None
     delivery_head_id: Optional[int]         = None
-    
+
     status: Optional[str]                   = None
     priority: Optional[str]                 = None
     description: Optional[str]              = None
@@ -74,11 +117,12 @@ class ProjectUpdate(BaseModel):
     actual_hours: Optional[float]           = None
     actual_start_date: Optional[date]       = None
     actual_end_date: Optional[date]         = None
-    
+
     is_archived: Optional[bool]             = None
     is_template: Optional[bool]             = None
     is_group: Optional[bool]                = None
     user_emails: Optional[List[str]]        = None
+
 
 class ProjectSyncUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -87,6 +131,11 @@ class ProjectSyncUpdate(BaseModel):
     account_name: Optional[str]    = None
     customer_name: Optional[str]   = None
     project_name: Optional[str]    = None
+
+
+
+
+
 
 class ProjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -98,11 +147,12 @@ class ProjectResponse(BaseModel):
     project_name: str
     customer_name: str
     client_name: Optional[str] = None
+    tags: Optional[str]        = None
 
     billing_model: BillingModel
     project_type: ProjectType
     project_status_external: Optional[str] = None
-    
+
     expected_start_date: Optional[date] = None
     expected_end_date: Optional[date]   = None
 
@@ -129,18 +179,35 @@ class ProjectResponse(BaseModel):
     project_manager: Optional[UserBase] = None
     delivery_head: Optional[UserBase]   = None
 
+
+    team_members: List[ProjectMemberResponse] = Field(default_factory=list)
+
+
+    task_count: int      = 0
+    issue_count: int     = 0
+    milestone_count: int = 0
+
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
 class ProjectListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     total: int
     items: List[ProjectResponse]
 
+
+
+
+
+
 class ProjectUserCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    user_id: str
+    user_id: Optional[str]          = None
     user_email: str
-    display_name: Optional[str]   = None
+    display_name: Optional[str]     = None
     project_id: int
-    project_profile: str          = "Member"
-    portal_profile: str           = "User"
+    project_profile: str            = "Member"
+    portal_profile: str             = "User"

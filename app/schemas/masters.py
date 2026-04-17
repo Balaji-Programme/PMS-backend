@@ -12,6 +12,19 @@ class MasterResponse(MasterBase):
 
     model_config = {"from_attributes": True}
 
+class MasterLookupBase(BaseModel):
+    category: str
+    value: str
+    label: str
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    order_index: int = 0
+    is_active: bool = True
+
+class MasterLookupResponse(MasterLookupBase):
+    id: int
+    model_config = {"from_attributes": True}
+
 class RoleBase(BaseModel):
     name: str
     description: Optional[str] = None

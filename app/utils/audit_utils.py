@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 def capture_audit_details(
     old_obj: Any,
@@ -22,8 +22,8 @@ def capture_audit_details(
             )
     return changes
 
-async def write_audit(
-    db: AsyncSession,
+def write_audit(
+    db: Session,
     actor_id: Optional[str],
     action_type: str,
     resource_name: str,
@@ -47,7 +47,7 @@ async def write_audit(
         performed_by = uuid.UUID(int=0)
 
     try:
-        async with db.begin_nested():
+        with db.begin_nested():
             audit_log = AuditLogs(
                 TableName     = resource_name[:250],
                 Action        = action_int,
@@ -58,7 +58,7 @@ async def write_audit(
                 ModuleName    = "System",
             )
             db.add(audit_log)
-            await db.flush()
+            db.flush()
 
             if details:
                 db.add_all([

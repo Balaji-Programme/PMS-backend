@@ -3,13 +3,16 @@ from __future__ import annotations
 from typing import List, Optional
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 
 from app.models.milestone import Milestone
+from app.models.task import Task
+from app.models.issue import Issue
 from app.schemas.milestone import MilestoneCreate, MilestoneUpdate
 from app.utils.ids import generate_public_id
 from app.utils.audit_utils import capture_audit_details, write_audit
+from sqlalchemy import func
 
 def _milestone_query():
     return (
@@ -20,12 +23,36 @@ def _milestone_query():
         )
     )
 
-async def get_milestone(db: AsyncSession, milestone_id: int) -> Optional[Milestone]:
-    result = await db.execute(_milestone_query().where(Milestone.id == milestone_id))
-    return result.scalar_one_or_none()
+def _enrich_milestone(db: Session, milestone: Milestone) -> Milestone:
+    task_count = db.execute(
+        select(func.count()).where(Task.milestone_id == milestone.id, Task.is_deleted == False)
+    ).scalar() or 0
 
-async def get_milestones(
-    db: AsyncSession,
+    milestone.__dict__['task_count'] = task_count
+    milestone.__dict__['issue_count'] = 0
+    return milestone
+
+def _batch_enrich_milestones(db: Session, milestones: List[Milestone]) -> None:
+    if not milestones:
+        return
+    milestone_ids = [m.id for m in milestones]
+    
+    task_counts = dict(db.execute(
+        select(Task.milestone_id, func.count()).where(Task.milestone_id.in_(milestone_ids), Task.is_deleted == False).group_by(Task.milestone_id)
+    ).all())
+    
+    for m in milestones:
+        m.__dict__['task_count'] = task_counts.get(m.id, 0)
+        m.__dict__['issue_count'] = 0
+
+def get_milestone(db: Session, milestone_id: int) -> Optional[Milestone]:
+    result = db.execute(_milestone_query().where(Milestone.id == milestone_id))
+    ms = result.scalar_one_or_none()
+    if ms: return _enrich_milestone(db, ms)
+    return None
+
+def get_milestones(
+    db: Session,
     project_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
@@ -33,44 +60,46 @@ async def get_milestones(
     stmt = _milestone_query()
     if project_id:
         stmt = stmt.where(Milestone.project_id == project_id)
-    result = await db.execute(stmt.offset(skip).limit(limit))
-    return result.scalars().unique().all()
+    result = db.execute(stmt.offset(skip).limit(limit))
+    milestones = list(result.scalars().unique().all())
+    _batch_enrich_milestones(db, milestones)
+    return milestones
 
-async def create_milestone(
-    db: AsyncSession,
+def create_milestone(
+    db: Session,
     milestone: MilestoneCreate,
     actor_id: Optional[str] = None,
 ) -> Milestone:
     public_id = generate_public_id("MLS-")
     db_milestone = Milestone(
-        public_id   = public_id,
-        title       = milestone.title,
-        description = milestone.description,
-        start_date  = milestone.start_date,
-        end_date    = milestone.end_date,
-        project_id  = milestone.project_id,
-        owner_email = milestone.owner_email,
-        flags       = milestone.flags,
-        tags        = milestone.tags,
+        public_id      = public_id,
+        milestone_name = milestone.milestone_name,
+        description    = milestone.description,
+        start_date     = milestone.start_date,
+        end_date       = milestone.end_date,
+        project_id     = milestone.project_id,
+        owner_id       = milestone.owner_id,
+        flags          = milestone.flags,
+        tags           = milestone.tags,
     )
     db.add(db_milestone)
-    await db.flush()
+    db.flush()
 
-    await write_audit(
+    write_audit(
         db, actor_id, "CREATE", "milestones",
         milestone.project_id or db_milestone.id, db_milestone.id,
-        [{"field_name": "title", "old_value": None, "new_value": milestone.title}],
+        [{"field_name": "milestone_name", "old_value": None, "new_value": milestone.milestone_name}],
     )
-    await db.commit()
-    return await get_milestone(db, db_milestone.id)
+    db.commit()
+    return get_milestone(db, db_milestone.id)
 
-async def update_milestone(
-    db: AsyncSession,
+def update_milestone(
+    db: Session,
     milestone_id: int,
     milestone_update: MilestoneUpdate,
     actor_id: Optional[str] = None,
 ) -> Optional[Milestone]:
-    result = await db.execute(select(Milestone).where(Milestone.id == milestone_id))
+    result = db.execute(select(Milestone).where(Milestone.id == milestone_id))
     db_milestone = result.scalar_one_or_none()
     if not db_milestone:
         return None
@@ -80,27 +109,27 @@ async def update_milestone(
     for key, value in update_data.items():
         setattr(db_milestone, key, value)
 
-    await write_audit(
+    write_audit(
         db, actor_id, "UPDATE", "milestones",
         db_milestone.project_id or milestone_id, milestone_id, changes,
     )
-    await db.commit()
-    return await get_milestone(db, milestone_id)
+    db.commit()
+    return get_milestone(db, milestone_id)
 
-async def delete_milestone(
-    db: AsyncSession,
+def delete_milestone(
+    db: Session,
     milestone_id: int,
     actor_id: Optional[str] = None,
 ) -> bool:
-    result = await db.execute(select(Milestone).where(Milestone.id == milestone_id))
+    result = db.execute(select(Milestone).where(Milestone.id == milestone_id))
     db_milestone = result.scalar_one_or_none()
     if not db_milestone:
         return False
-    await write_audit(
+    write_audit(
         db, actor_id, "DELETE", "milestones",
         db_milestone.project_id or milestone_id, milestone_id,
-        [{"field_name": "title", "old_value": db_milestone.title, "new_value": None}],
+        [{"field_name": "milestone_name", "old_value": db_milestone.milestone_name, "new_value": None}],
     )
-    await db.delete(db_milestone)
-    await db.commit()
+    db.delete(db_milestone)
+    db.commit()
     return True

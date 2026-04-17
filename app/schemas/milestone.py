@@ -36,6 +36,13 @@ class MilestoneUpdate(BaseModel):
     end_date: Optional[date]      = None
     completion_percentage: Optional[int] = None
 
+class ProjectMin(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    project_name: str
+    customer_name: Optional[str] = None
+    account_name: Optional[str] = None
+
 class MilestoneResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,6 +52,7 @@ class MilestoneResponse(BaseModel):
     description: Optional[str]
 
     project_id: Optional[int]
+    project: Optional[ProjectMin] = None
     owner_id: Optional[int]
 
     status: Optional[str]
@@ -54,5 +62,8 @@ class MilestoneResponse(BaseModel):
     start_date: Optional[date]
     end_date: Optional[date]
     completion_percentage: Optional[int]
+
+    task_count: int = 0
+    issue_count: int = 0
 
     owner: Optional[UserBase] = None

@@ -16,6 +16,8 @@ def get_documents(db: Session, skip: int = 0, limit: int = 100, project_id: Opti
     )
     if project_id is not None:
         query = query.filter(Document.project_id == project_id)
+        # Exclude documents that are attached to any issues from the general project document list
+        query = query.filter(~Document.issues.any())
     if file_type:
         query = query.filter(Document.file_type.ilike(f"%{file_type}%"))
     return query.order_by(Document.created_at.desc()).offset(skip).limit(limit).all()

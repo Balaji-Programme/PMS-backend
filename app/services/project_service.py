@@ -2,46 +2,117 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from sqlalchemy import func, select, delete as sa_delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.project import Project, ProjectMember
 from app.models.user import User
+from app.models.task import Task
+from app.models.issue import Issue
+from app.models.milestone import Milestone
 from app.models.template import ProjectTemplate, TemplateTask
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectSyncUpdate
-from app.utils.ids import generate_public_id
+from app.utils.ids import generate_public_id, get_next_project_id
 from app.utils.audit_utils import capture_audit_details, write_audit
 
+
+
+
+
+
 def _project_query(extra_options=()):
+    
     return (
         select(Project)
         .options(
-            selectinload(Project.owner),
-            selectinload(Project.project_manager),
-            selectinload(Project.delivery_head),
+            selectinload(Project.owner).selectinload(User.role),
+            selectinload(Project.project_manager).selectinload(User.role),
+            selectinload(Project.delivery_head).selectinload(User.role),
             selectinload(Project.source_template),
-            selectinload(Project.team_members).selectinload(ProjectMember.user),
+            selectinload(Project.team_members).selectinload(ProjectMember.user).selectinload(User.role),
             *extra_options,
         )
     )
 
-async def get_project(db: AsyncSession, project_id: int) -> Optional[Project]:
-    result = await db.execute(_project_query().where(Project.id == project_id))
-    return result.scalar_one_or_none()
 
-async def get_projects(
-    db: AsyncSession,
+def _compute_counts(db: Session, project_id: int) -> dict:
+    
+    task_count = db.execute(
+        select(func.count()).where(Task.project_id == project_id, Task.is_deleted == False)
+    ).scalar() or 0
+    issue_count = db.execute(
+        select(func.count()).where(Issue.project_id == project_id, Issue.is_deleted == False)
+    ).scalar() or 0
+    milestone_count = db.execute(
+        select(func.count()).where(Milestone.project_id == project_id, Milestone.is_deleted == False)
+    ).scalar() or 0
+    return {
+        "task_count": task_count,
+        "issue_count": issue_count,
+        "milestone_count": milestone_count,
+    }
+
+
+def _enrich_project(db: Session, project: Project) -> Project:
+    
+    counts = _compute_counts(db, project.id)
+    project.__dict__.update(counts)
+    return project
+
+def _batch_enrich_projects(db: Session, projects: List[Project]) -> None:
+    if not projects:
+        return
+    project_ids = [p.id for p in projects]
+    
+    task_counts = dict(db.execute(
+        select(Task.project_id, func.count()).where(Task.project_id.in_(project_ids), Task.is_deleted == False).group_by(Task.project_id)
+    ).all())
+    
+    issue_counts = dict(db.execute(
+        select(Issue.project_id, func.count()).where(Issue.project_id.in_(project_ids), Issue.is_deleted == False).group_by(Issue.project_id)
+    ).all())
+    
+    milestone_counts = dict(db.execute(
+        select(Milestone.project_id, func.count()).where(Milestone.project_id.in_(project_ids), Milestone.is_deleted == False).group_by(Milestone.project_id)
+    ).all())
+    
+    for p in projects:
+        p.__dict__.update({
+            "task_count": task_counts.get(p.id, 0),
+            "issue_count": issue_counts.get(p.id, 0),
+            "milestone_count": milestone_counts.get(p.id, 0),
+        })
+
+
+
+
+
+
+
+def get_project(db: Session, project_id: int) -> Optional[Project]:
+    result = db.execute(
+        _project_query().where(Project.id == project_id, Project.is_deleted == False)
+    )
+    project = result.scalar_one_or_none()
+    if project:
+        _enrich_project(db, project)
+    return project
+
+
+def get_projects(
+    db: Session,
     skip: int = 0,
     limit: int = 100,
-    status: Optional[str] = None,
-    priority: Optional[str] = None,
+    status_ids: Optional[List[int]] = None,
+    priority_ids: Optional[List[int]] = None,
+    manager_emails: Optional[List[str]] = None,
     is_archived: Optional[bool] = None,
     is_template: Optional[bool] = None,
     include_all: bool = False,
     current_user=None,
 ) -> List[Project]:
-    stmt = _project_query()
+    stmt = _project_query().where(Project.is_deleted == False)
+
 
     if current_user is not None:
         stmt = stmt.join(ProjectMember, ProjectMember.project_id == Project.id).where(
@@ -54,20 +125,51 @@ async def get_projects(
         if is_template is not None:
             stmt = stmt.where(Project.is_template == is_template)
 
-    if status:
-        stmt = stmt.where(Project.status == status)
-    if priority:
-        stmt = stmt.where(Project.priority == priority)
+    if manager_emails:
+        stmt = (
+            stmt.join(User, Project.project_manager_id == User.id)
+            .where(User.email.in_(manager_emails))
+        )
 
-    result = await db.execute(stmt.offset(skip).limit(limit))
-    return result.scalars().unique().all()
+    result = db.execute(stmt.offset(skip).limit(limit))
+    projects = list(result.scalars().unique().all())
+    _batch_enrich_projects(db, projects)
+    return projects
 
-async def create_project(
-    db: AsyncSession,
+
+def search_projects(
+    db: Session,
+    query: str,
+    limit: int = 20,
+) -> List[Project]:
+    if not query:
+        return []
+    q = f"%{query}%"
+    stmt = _project_query().where(
+        Project.is_deleted == False,
+        or_(
+            Project.project_name.ilike(q),
+            Project.public_id.ilike(q),
+            Project.project_id_sync.ilike(q),
+            Project.customer_name.ilike(q),
+        ),
+    ).limit(limit)
+    result = db.execute(stmt)
+    projects = list(result.scalars().unique().all())
+    _batch_enrich_projects(db, projects)
+    return projects
+
+
+
+
+
+
+def create_project(
+    db: Session,
     project: ProjectCreate,
     actor_id: str,
 ) -> Project:
-    public_id = generate_public_id("PRJ-")
+    public_id = get_next_project_id(db, Project)
 
     db_project = Project(
         public_id               = public_id,
@@ -77,6 +179,7 @@ async def create_project(
         client_name             = project.client_name,
         project_id_sync         = project.project_id_sync,
         description             = project.description,
+        tags                    = project.tags,
         billing_model           = project.billing_model,
         project_type            = project.project_type,
         project_status_external = project.project_status_external,
@@ -84,51 +187,284 @@ async def create_project(
         delivery_head_id        = project.delivery_head_id,
         owner_id                = project.owner_id,
         template_id             = project.template_id,
-        status                  = project.status,
-        priority                = project.priority,
+        status                  = project.status or "Active",
+        priority                = project.priority or "Medium",
         expected_start_date     = project.expected_start_date,
         expected_end_date       = project.expected_end_date,
-        estimated_hours         = project.estimated_hours,
+        estimated_hours         = project.estimated_hours or 0.0,
         actual_start_date       = project.actual_start_date,
         actual_end_date         = project.actual_end_date,
-        actual_hours            = project.actual_hours,
+        actual_hours            = project.actual_hours or 0.0,
         is_archived             = project.is_archived,
         is_template             = project.is_template,
         is_group                = project.is_group,
     )
-    
+
     db.add(db_project)
-    await db.flush()
+    db.flush()
+
 
     if project.template_id:
-        await clone_from_template(db, db_project.id, project.template_id)
+        clone_from_template(db, db_project.id, project.template_id)
+
 
     if project.user_emails:
-        users_result = await db.execute(select(User).where(User.email.in_(project.user_emails)))
+        users_result = db.execute(select(User).where(User.email.in_(project.user_emails)))
         for u in users_result.scalars().all():
-            db.add(ProjectMember(project_id=db_project.id, user_id=u.id, project_profile="Member", portal_profile="User"))
+            db.add(ProjectMember(
+                project_id      = db_project.id,
+                user_id         = u.id,
+                project_profile = "Member",
+                portal_profile  = "User",
+            ))
 
-    await db.commit()
-    return await get_project(db, db_project.id)
 
-async def clone_from_template(
-    db: AsyncSession,
+    if project.owner_id:
+        existing = db.execute(
+            select(ProjectMember).where(
+                ProjectMember.project_id == db_project.id,
+                ProjectMember.user_id == project.owner_id,
+            )
+        ).scalar_one_or_none()
+        if not existing:
+            db.add(ProjectMember(
+                project_id      = db_project.id,
+                user_id         = project.owner_id,
+                project_profile = "Project Lead",
+                portal_profile  = "Administrator",
+            ))
+
+    write_audit(
+        db, actor_id, "CREATE", "projects", db_project.id, db_project.id,
+        [{"field_name": "project_name", "old_value": None, "new_value": project.project_name}],
+    )
+    db.commit()
+    return get_project(db, db_project.id)
+
+
+
+
+
+
+def update_project(
+    db: Session,
+    project_id: int,
+    project_update: ProjectUpdate,
+    actor_id: Optional[str] = None,
+) -> Optional[Project]:
+    result = db.execute(select(Project).where(Project.id == project_id))
+    db_project = result.scalar_one_or_none()
+    if not db_project:
+        return None
+
+    update_data = project_update.model_dump(
+        exclude_unset=True,
+        exclude={"user_emails"},
+    )
+    changes = capture_audit_details(db_project, update_data)
+    for key, value in update_data.items():
+        setattr(db_project, key, value)
+
+
+    if project_update.user_emails is not None:
+
+        existing_members = db.execute(
+            select(ProjectMember).where(ProjectMember.project_id == project_id)
+        ).scalars().all()
+        existing_user_ids = {m.user_id for m in existing_members}
+
+
+        new_users = db.execute(
+            select(User).where(User.email.in_(project_update.user_emails))
+        ).scalars().all()
+        new_user_ids = {u.id for u in new_users}
+
+
+        for u in new_users:
+            if u.id not in existing_user_ids:
+                db.add(ProjectMember(
+                    project_id      = project_id,
+                    user_id         = u.id,
+                    project_profile = "Member",
+                    portal_profile  = "User",
+                ))
+
+
+        owner_id = db_project.owner_id
+        for m in existing_members:
+            if m.user_id not in new_user_ids and m.user_id != owner_id:
+                db.delete(m)
+
+    write_audit(db, actor_id, "UPDATE", "projects", project_id, project_id, changes)
+    db.commit()
+    return get_project(db, project_id)
+
+
+
+
+
+
+def delete_project(
+    db: Session,
+    project_id: int,
+    actor_id: Optional[str] = None,
+) -> bool:
+    result = db.execute(select(Project).where(Project.id == project_id))
+    db_project = result.scalar_one_or_none()
+    if not db_project:
+        return False
+
+    write_audit(
+        db, actor_id, "DELETE", "projects", project_id, project_id,
+        [{"field_name": "project_name", "old_value": db_project.project_name, "new_value": None}],
+    )
+    db_project.is_deleted = True
+    db_project.is_active  = False
+    db.commit()
+    return True
+
+
+
+
+
+
+def archive_project(
+    db: Session,
+    project_id: int,
+    archived: bool = True,
+    actor_id: Optional[str] = None,
+) -> Optional[Project]:
+    result = db.execute(select(Project).where(Project.id == project_id))
+    db_project = result.scalar_one_or_none()
+    if not db_project:
+        return None
+
+    db_project.is_archived = archived
+    write_audit(
+        db, actor_id or "system", "UPDATE", "projects", project_id, project_id,
+        [{"field_name": "is_archived", "old_value": str(not archived), "new_value": str(archived)}],
+    )
+    db.commit()
+    return get_project(db, project_id)
+
+
+
+
+
+
+def sync_project_fields(
+    db: Session,
+    project_id: int,
+    sync_data: ProjectSyncUpdate,
+    actor_id: Optional[str] = None,
+) -> Optional[Project]:
+    result = db.execute(select(Project).where(Project.id == project_id))
+    db_project = result.scalar_one_or_none()
+    if not db_project:
+        return None
+
+    update_data = sync_data.model_dump(exclude_unset=True, exclude_none=True)
+    changes = capture_audit_details(db_project, update_data)
+    for key, value in update_data.items():
+        setattr(db_project, key, value)
+
+    write_audit(db, actor_id or "sync", "UPDATE", "projects", project_id, project_id, changes)
+    db.commit()
+    return get_project(db, project_id)
+
+
+
+
+
+
+def add_project_member(
+    db: Session,
+    project_id: int,
+    user_id: int,
+    project_profile: str = "Member",
+    portal_profile: str = "User",
+) -> Optional[ProjectMember]:
+    existing = db.execute(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return existing
+
+    member = ProjectMember(
+        project_id      = project_id,
+        user_id         = user_id,
+        project_profile = project_profile,
+        portal_profile  = portal_profile,
+    )
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+    return member
+
+
+def remove_project_member(
+    db: Session,
+    project_id: int,
+    user_id: int,
+    owner_id: Optional[int] = None,
+) -> bool:
+    
+    if owner_id and user_id == owner_id:
+        return False
+    result = db.execute(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+    ).scalar_one_or_none()
+    if not result:
+        return False
+    db.delete(result)
+    db.commit()
+    return True
+
+
+
+
+
+
+def clone_from_template(
+    db: Session,
     project_id: int,
     template_id: int,
 ) -> None:
-    from app.models.task import Task
-    tmpl_tasks_result = await db.execute(
+    from app.utils.ids import get_next_sequence_id
+    
+    # Get project name for sequence prefix
+    project = db.execute(select(Project).where(Project.id == project_id)).scalar_one_or_none()
+    project_name = project.project_name if project else ""
+
+    tmpl_tasks_result = db.execute(
         select(TemplateTask)
         .where(TemplateTask.template_id == template_id)
         .order_by(TemplateTask.order_index)
     )
-    for tt in tmpl_tasks_result.scalars().all():
+    
+    tasks_to_add = tmpl_tasks_result.scalars().all()
+    for tt in tasks_to_add:
+        # We need to manually increment since we're in a loop adding multiple
+        # Actually get_next_sequence_id queries the DB. To avoid same ID for all if we don't flush,
+        # we should either flush inside the loop or generate manually.
+        # Let's flush after each for simplicity ensuring uniqueness.
+        pid = get_next_sequence_id(db, Task, project_name, project_id, "T")
         db.add(Task(
-            public_id       = generate_public_id("TSK-"),
+            public_id       = pid,
             task_name       = tt.title,
             description     = tt.description,
             project_id      = project_id,
             estimated_hours = tt.estimated_hours,
-            priority        = "Medium",
+            duration        = tt.duration,
+            billing_type    = tt.billing_type or "Billable",
+            tags            = tt.tags,
         ))
-    await db.flush()
+        db.flush()
+    db.commit()
+
