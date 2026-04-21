@@ -64,6 +64,10 @@ class TaskUpdate(BaseModel):
     owner_emails: Optional[List[str]]    = None
     assignee_emails: Optional[List[str]] = None
 
+    # Email-automation: writer can set previous_status_id + reset is_processed
+    previous_status_id: Optional[int] = None
+    is_processed: Optional[bool]      = None
+
 class ProjectMin(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -111,6 +115,10 @@ class TaskResponse(BaseModel):
     estimated_hours: Optional[float]
     work_hours: Optional[float]
     billing_type: str
+
+    # Email-automation fields
+    is_processed: bool                  = False
+    previous_status_id: Optional[int]   = None
 
     timelog_total: float
     difference: float

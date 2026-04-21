@@ -43,8 +43,12 @@ class Issue(AuditMixin, Base):
     assignee_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     status_id: Mapped[Optional[int]] = mapped_column(ForeignKey("master_lookups.id"), nullable=True)
+    priority_id: Mapped[Optional[int]] = mapped_column(ForeignKey("master_lookups.id"), nullable=True)
     severity_id: Mapped[Optional[int]] = mapped_column(ForeignKey("master_lookups.id"), nullable=True)
     classification_id: Mapped[Optional[int]] = mapped_column(ForeignKey("master_lookups.id"), nullable=True)
+
+
+
     
     module: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     tags: Mapped[Optional[str]]   = mapped_column(String(500), nullable=True)
@@ -60,14 +64,21 @@ class Issue(AuditMixin, Base):
     
     estimated_hours: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
+    previous_status_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("master_lookups.id", ondelete="SET NULL"), nullable=True
+    )
+
+
 
     project  = relationship("Project", back_populates="issues", lazy="selectin")
     milestone = relationship("Milestone", foreign_keys=[milestone_id], lazy="selectin")
     
-    status_master = relationship("MasterLookup", foreign_keys=[status_id], lazy="selectin")
+    status_master   = relationship("MasterLookup", foreign_keys=[status_id], lazy="selectin")
+    priority_master = relationship("MasterLookup", foreign_keys=[priority_id], lazy="selectin")
     severity_master = relationship("MasterLookup", foreign_keys=[severity_id], lazy="selectin")
     classification_master = relationship("MasterLookup", foreign_keys=[classification_id], lazy="selectin")
     reporter = relationship("User", foreign_keys=[reporter_id], lazy="selectin")
+
     assignee = relationship("User", foreign_keys=[assignee_id], lazy="selectin")
 
     followers = relationship("User", secondary=issue_followers, lazy="selectin")
@@ -77,6 +88,8 @@ class Issue(AuditMixin, Base):
 
     @property
     def status(self) -> Optional[dict]:
+
+
         if self.status_master:
             return {
                 "id": self.status_master.id,
@@ -89,6 +102,8 @@ class Issue(AuditMixin, Base):
 
     @property
     def severity(self) -> Optional[dict]:
+
+
         if self.severity_master:
             return {
                 "id": self.severity_master.id,
@@ -100,7 +115,24 @@ class Issue(AuditMixin, Base):
         return None
 
     @property
+    def priority(self) -> Optional[dict]:
+
+
+        if self.priority_master:
+            return {
+                "id": self.priority_master.id,
+                "label": self.priority_master.label,
+                "value": self.priority_master.value,
+                "color": self.priority_master.color,
+                "category": self.priority_master.category
+            }
+        return None
+
+    @property
     def classification(self) -> Optional[dict]:
+
+
+
         if self.classification_master:
             return {
                 "id": self.classification_master.id,

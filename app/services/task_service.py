@@ -164,6 +164,21 @@ def update_task(
         exclude_unset=True,
         exclude={"owner_emails", "assignee_emails"},
     )
+
+    # ── Email-automation: detect status change ──────────────────────────────
+    if "status_id" in update_data and update_data["status_id"] != db_task.status_id:
+        update_data["previous_status_id"] = db_task.status_id
+        update_data["is_processed"] = False
+
+
+    if "priority_id" in update_data and update_data["priority_id"] != db_task.priority_id:
+        update_data["is_processed"] = False
+
+    # Sync text labels from masters removed as VARCHAR columns are deprecated.
+
+
+
+
     changes = capture_audit_details(db_task, update_data)
     for key, value in update_data.items():
         setattr(db_task, key, value)
@@ -186,6 +201,7 @@ def update_task(
     )
     db.commit()
     return get_task(db, task_id)
+
 
 
 def delete_task(

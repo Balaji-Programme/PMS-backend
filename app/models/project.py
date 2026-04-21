@@ -31,14 +31,34 @@ class ProjectMember(Base):
     project_profile: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     portal_profile: Mapped[Optional[str]]  = mapped_column(String(100), nullable=True)
     role_in_project: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    invitation_status: Mapped[str]         = mapped_column(String(50), default="Accepted", server_default="Accepted")
+    invitation_status_id: Mapped[Optional[int]] = mapped_column(ForeignKey("master_lookups.id"), nullable=True)
+
     is_owner: Mapped[bool]                 = mapped_column(Boolean, default=False)
+
+    is_processed: Mapped[bool]                        = mapped_column(Boolean, default=False)
+    previous_invitation_status_id: Mapped[Optional[int]] = mapped_column(ForeignKey("master_lookups.id"), nullable=True)
+
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=func.now())
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
+    invitation_status_master = relationship("MasterLookup", foreign_keys=[invitation_status_id], lazy="selectin")
+    
+    @property
+    def invitation_status(self) -> Optional[dict]:
+        if self.invitation_status_master:
+            return {
+                "id": self.invitation_status_master.id,
+                "value": self.invitation_status_master.value,
+                "label": self.invitation_status_master.label,
+                "color": self.invitation_status_master.color
+            }
+        return None
+
     user: Mapped["User"] = relationship(lazy="selectin")
+
     project: Mapped["Project"] = relationship(back_populates="team_members", lazy="selectin")
+
 
 class Project(AuditMixin, Base):
     __tablename__ = "projects"
@@ -65,8 +85,10 @@ class Project(AuditMixin, Base):
     delivery_head_id: Mapped[Optional[int]]   = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     template_id: Mapped[Optional[int]]        = mapped_column(ForeignKey("project_templates.id", ondelete="SET NULL"), nullable=True)
 
-    status: Mapped[str]   = mapped_column(String(50), default="Active")
-    priority: Mapped[str] = mapped_column(String(20), default="Medium")
+    status_id: Mapped[Optional[int]]   = mapped_column(ForeignKey("master_lookups.id"), nullable=True)
+    priority_id: Mapped[Optional[int]] = mapped_column(ForeignKey("master_lookups.id"), nullable=True)
+
+
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     tags: Mapped[Optional[str]]        = mapped_column(String(500), nullable=True)
 
@@ -84,6 +106,37 @@ class Project(AuditMixin, Base):
     is_template: Mapped[bool]  = mapped_column(Boolean, default=False)
     is_group: Mapped[bool]     = mapped_column(Boolean, default=False)
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Email-automation tracking
+    previous_status_id: Mapped[Optional[int]] = mapped_column(ForeignKey("master_lookups.id", ondelete="SET NULL"), nullable=True)
+
+
+    status_master   = relationship("MasterLookup", foreign_keys=[status_id], lazy="selectin")
+    priority_master = relationship("MasterLookup", foreign_keys=[priority_id], lazy="selectin")
+
+    @property
+    def status(self) -> Optional[dict]:
+        if self.status_master:
+            return {
+                "id": self.status_master.id,
+                "value": self.status_master.value,
+                "label": self.status_master.label,
+                "color": self.status_master.color
+            }
+        return None
+
+    @property
+    def priority(self) -> Optional[dict]:
+        if self.priority_master:
+            return {
+                "id": self.priority_master.id,
+                "value": self.priority_master.value,
+                "label": self.priority_master.label,
+                "color": self.priority_master.color
+            }
+        return None
+
+
 
     project_manager = relationship("User", foreign_keys=[project_manager_id], lazy="selectin")
     delivery_head   = relationship("User", foreign_keys=[delivery_head_id], lazy="selectin")

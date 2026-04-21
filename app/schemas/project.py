@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.project import BillingModel, ProjectType
 from app.schemas.user import UserBase
-from app.schemas.masters import MasterResponse
+from app.schemas.masters import MasterResponse, MasterLookupResponse
 
 
 
@@ -22,9 +22,15 @@ class ProjectMemberResponse(BaseModel):
     project_profile: Optional[str]  = None
     portal_profile: Optional[str]   = None
     role_in_project: Optional[str]  = None
-    invitation_status: str          = "Accepted"
+    invitation_status_id: Optional[int] = None
+
     is_owner: bool                  = False
     created_at: Optional[datetime]  = None
+
+    # Email-automation
+    is_processed: bool                          = False
+    previous_invitation_status_id: Optional[int] = None
+
 
     user: Optional[UserBase] = None
 
@@ -41,8 +47,14 @@ class ProjectMemberCreate(BaseModel):
 class ProjectMemberUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    project_profile: Optional[str] = None
-    portal_profile: Optional[str] = None
+    project_profile: Optional[str]          = None
+    portal_profile: Optional[str]           = None
+    invitation_status_id: Optional[int]         = None
+    is_owner: Optional[bool]                = None
+
+    # Email-automation: set previous state before updating
+    previous_invitation_status_id: Optional[int]   = None
+    is_processed: Optional[bool]                = None
 
 
 
@@ -73,8 +85,9 @@ class ProjectCreate(BaseModel):
     delivery_head_id: Optional[int]         = None
     template_id: Optional[int]              = None
 
-    status: Optional[str]                   = "Active"
-    priority: Optional[str]                 = "Medium"
+    status_id: Optional[int]                = None
+    priority_id: Optional[int]              = None
+
 
     estimated_hours: Optional[float]        = 0.0
     actual_hours: Optional[float]           = 0.0
@@ -109,8 +122,9 @@ class ProjectUpdate(BaseModel):
     project_manager_id: Optional[int]       = None
     delivery_head_id: Optional[int]         = None
 
-    status: Optional[str]                   = None
-    priority: Optional[str]                 = None
+    status_id: Optional[int]                = None
+    priority_id: Optional[int]              = None
+
     description: Optional[str]              = None
 
     estimated_hours: Optional[float]        = None
@@ -122,6 +136,12 @@ class ProjectUpdate(BaseModel):
     is_template: Optional[bool]             = None
     is_group: Optional[bool]                = None
     user_emails: Optional[List[str]]        = None
+
+    # Email-automation
+    previous_status_id: Optional[int]   = None
+    is_processed: Optional[bool]        = None
+
+
 
 
 class ProjectSyncUpdate(BaseModel):
@@ -157,8 +177,13 @@ class ProjectResponse(BaseModel):
     expected_end_date: Optional[date]   = None
 
     description: Optional[str]          = None
-    status: str                         = "Active"
-    priority: str                       = "Medium"
+    
+    status_id: Optional[int]            = None
+    priority_id: Optional[int]          = None
+
+    status_master: Optional[MasterLookupResponse]     = None
+    priority_master: Optional[MasterLookupResponse]   = None
+
 
     owner_id: Optional[int]             = None
     project_manager_id: Optional[int]   = None
@@ -174,6 +199,11 @@ class ProjectResponse(BaseModel):
     is_template: bool                   = False
     is_group: bool                      = False
     is_processed: bool                  = False
+
+    # Email-automation
+    previous_status_id: Optional[int]   = None
+
+
 
     owner: Optional[UserBase]           = None
     project_manager: Optional[UserBase] = None

@@ -79,8 +79,12 @@ def create_milestone(
         end_date       = milestone.end_date,
         project_id     = milestone.project_id,
         owner_id       = milestone.owner_id,
+        status_id      = milestone.status_id,
+        priority_id    = milestone.priority_id,
         flags          = milestone.flags,
+
         tags           = milestone.tags,
+
     )
     db.add(db_milestone)
     db.flush()
@@ -105,6 +109,17 @@ def update_milestone(
         return None
 
     update_data = milestone_update.model_dump(exclude_unset=True)
+
+    # ── Email-automation: detect status change ──────────────────────────────
+    if "status_id" in update_data and update_data["status_id"] != db_milestone.status_id:
+        update_data["previous_status_id"] = db_milestone.status_id
+        update_data["is_processed"] = False
+
+    if "priority_id" in update_data and update_data["priority_id"] != db_milestone.priority_id:
+        update_data["is_processed"] = False
+
+
+
     changes = capture_audit_details(db_milestone, update_data)
     for key, value in update_data.items():
         setattr(db_milestone, key, value)
@@ -115,6 +130,7 @@ def update_milestone(
     )
     db.commit()
     return get_milestone(db, milestone_id)
+
 
 def delete_milestone(
     db: Session,

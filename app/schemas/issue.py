@@ -22,6 +22,7 @@ class IssueCreate(BaseModel):
     reporter_id: Optional[int] = None
 
     status_id: Optional[int] = None
+    priority_id: Optional[int] = None
     severity_id: Optional[int] = None
     classification_id: Optional[int] = None
     reporter_email: Optional[str] = None
@@ -50,6 +51,7 @@ class IssueUpdate(BaseModel):
     reporter_id: Optional[int] = None
 
     status_id: Optional[int] = None
+    priority_id: Optional[int] = None
     severity_id: Optional[int] = None
     classification_id: Optional[int] = None
 
@@ -63,6 +65,10 @@ class IssueUpdate(BaseModel):
     last_closed_time: Optional[datetime] = None
     last_modified_time: Optional[datetime] = None
     estimated_hours: Optional[float] = None
+
+    # Email-automation
+    previous_status_id: Optional[int] = None
+    is_processed: Optional[bool]      = None
 
 
 class ProjectMin(BaseModel):
@@ -89,13 +95,16 @@ class IssueResponse(BaseModel):
     reporter_id: Optional[int]
 
     status_id: Optional[int] = None
+    priority_id: Optional[int] = None
     severity_id: Optional[int] = None
     classification_id: Optional[int] = None
 
     status_master: Optional[MasterLookupResponse] = None
+    priority_master: Optional[MasterLookupResponse] = None
     severity_master: Optional[MasterLookupResponse] = None
     classification_master: Optional[MasterLookupResponse] = None
     status: Optional[dict] = None
+    priority: Optional[dict] = None
     severity: Optional[dict] = None
     classification: Optional[dict] = None
 
@@ -109,6 +118,10 @@ class IssueResponse(BaseModel):
     last_closed_time: Optional[datetime]
     last_modified_time: Optional[datetime] = None
     estimated_hours: Optional[float]
+
+    # Email-automation fields
+    is_processed: bool                  = False
+    previous_status_id: Optional[int]   = None
 
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
