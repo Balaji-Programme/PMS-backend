@@ -22,11 +22,11 @@ def get_report_summary(db: Session = Depends(get_sync_db)):
         func.count(Project.id).label("total"),
         func.sum(
             case(
-                (Project.status.notin_(["Completed", "Closed"]), 1),
+                (MasterLookup.label.notin_(["Completed", "Closed"]), 1),
                 else_=0,
             )
         ).label("active")
-    ).one()
+    ).outerjoin(MasterLookup, Project.status_id == MasterLookup.id).one()
 
     task_total = db.query(func.count(Task.id)).scalar() or 0
     task_completed = db.query(func.count(Task.id)).join(Task.status_master).filter(MasterLookup.label == "Completed").scalar() or 0

@@ -25,8 +25,9 @@ class TimeLogCreate(BaseModel):
     notes: Optional[str] = None
 
     billing_type: Optional[str]     = "Billable"
-    approval_status: Optional[str]  = "Pending"
+    approval_status_id: Optional[int] = None
     general_log: Optional[bool]     = False
+
 
 
 class TimeLogUpdate(BaseModel):
@@ -38,7 +39,11 @@ class TimeLogUpdate(BaseModel):
     time_period: Optional[str]      = None
     notes: Optional[str]            = None
     billing_type: Optional[str]     = None
-    approval_status: Optional[str]  = None
+    approval_status_id: Optional[int]  = None
+
+    # Email-automation
+    previous_approval_status_id: Optional[int] = None
+    is_processed: Optional[bool]            = None
 
 
 class TimeLogProjectSchema(BaseModel):
@@ -73,8 +78,14 @@ class TimeLogResponse(BaseModel):
     notes: Optional[str]
 
     billing_type: str
-    approval_status: str
+    approval_status_id: Optional[int]
     general_log: bool
+
+
+    # Email-automation fields
+    is_processed: bool                      = False
+    previous_approval_status_id: Optional[int] = None
+
 
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

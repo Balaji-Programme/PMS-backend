@@ -35,16 +35,37 @@ class TimeLog(AuditMixin, Base):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     billing_type: Mapped[str] = mapped_column(String(50), default="Billable")
-    approval_status: Mapped[str] = mapped_column(String(50), default="Pending")
+    approval_status_id: Mapped[Optional[int]] = mapped_column(ForeignKey("master_lookups.id"), nullable=True)
+
     general_log: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    is_processed: Mapped[bool]                      = mapped_column(Boolean, default=False)
+    previous_approval_status_id: Mapped[Optional[int]] = mapped_column(ForeignKey("master_lookups.id"), nullable=True)
+
 
     user       = relationship("User", foreign_keys=[user_id], lazy="selectin")
     created_by = relationship("User", foreign_keys=[created_by_id], lazy="selectin")
     
+    approval_status_master = relationship("MasterLookup", foreign_keys=[approval_status_id], lazy="selectin")
+    previous_approval_status_master = relationship("MasterLookup", foreign_keys=[previous_approval_status_id], lazy="selectin")
+
+    @property
+    def approval_status(self) -> Optional[dict]:
+        if self.approval_status_master:
+            return {
+                "id": self.approval_status_master.id,
+                "value": self.approval_status_master.value,
+                "label": self.approval_status_master.label,
+                "color": self.approval_status_master.color
+            }
+        return None
+
     project = relationship("Project", back_populates="timelogs", lazy="selectin")
+
     task    = relationship("Task", back_populates="timelogs", lazy="selectin")
     issue   = relationship("Issue", lazy="selectin")
     timesheet = relationship("Timesheet", back_populates="timelogs", lazy="selectin")
+
 
 
 

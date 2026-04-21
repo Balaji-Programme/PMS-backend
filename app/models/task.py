@@ -56,12 +56,19 @@ class Task(AuditMixin, Base):
     _duration: Mapped[Optional[int]] = mapped_column("duration", Integer, nullable=True)
     completion_percentage: Mapped[Optional[int]] = mapped_column(Integer, default=0, nullable=True)
 
+
+
     estimated_hours: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
     work_hours: Mapped[Optional[float]]      = mapped_column(Numeric(10, 2), default=0, nullable=True)
     cached_timelog_total: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), default=0, nullable=True)
     billing_type: Mapped[str]                = mapped_column(String(50), default="Billable")
 
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
+    previous_status_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("master_lookups.id", ondelete="SET NULL"), nullable=True
+    )
+
+
 
     project   = relationship("Project", back_populates="tasks", lazy="selectin")
     task_list = relationship("TaskList", back_populates="tasks", lazy="selectin")
@@ -102,6 +109,8 @@ class Task(AuditMixin, Base):
 
     @property
     def status(self) -> Optional[dict]:
+
+
         if self.status_master:
             return {
                 "id": self.status_master.id,
@@ -114,6 +123,8 @@ class Task(AuditMixin, Base):
 
     @property
     def priority(self) -> Optional[dict]:
+
+
         if self.priority_master:
             return {
                 "id": self.priority_master.id,

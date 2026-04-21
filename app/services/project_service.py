@@ -187,8 +187,11 @@ def create_project(
         delivery_head_id        = project.delivery_head_id,
         owner_id                = project.owner_id,
         template_id             = project.template_id,
+        status_id               = project.status_id,
+        priority_id             = project.priority_id,
         status                  = project.status or "Active",
         priority                = project.priority or "Medium",
+
         expected_start_date     = project.expected_start_date,
         expected_end_date       = project.expected_end_date,
         estimated_hours         = project.estimated_hours or 0.0,
@@ -261,7 +264,17 @@ def update_project(
         exclude_unset=True,
         exclude={"user_emails"},
     )
+
+    # ── Email-automation: detect project status/priority change ─────────────
+    if "status_id" in update_data and update_data["status_id"] != db_project.status_id:
+        update_data["previous_status_id"] = db_project.status_id
+        update_data["is_processed"] = False
+    
+    if "priority_id" in update_data and update_data["priority_id"] != db_project.priority_id:
+        update_data["is_processed"] = False
+
     changes = capture_audit_details(db_project, update_data)
+
     for key, value in update_data.items():
         setattr(db_project, key, value)
 
@@ -287,6 +300,7 @@ def update_project(
                     user_id         = u.id,
                     project_profile = "Member",
                     portal_profile  = "User",
+                    is_processed    = False,
                 ))
 
 
@@ -298,6 +312,7 @@ def update_project(
     write_audit(db, actor_id, "UPDATE", "projects", project_id, project_id, changes)
     db.commit()
     return get_project(db, project_id)
+
 
 
 
@@ -403,6 +418,36 @@ def add_project_member(
     db.commit()
     db.refresh(member)
     return member
+
+
+def update_project_member(
+    db: Session,
+    project_id: int,
+    user_id: int,
+    profile_data: dict,
+) -> Optional[ProjectMember]:
+    member = db.execute(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+    ).scalar_one_or_none()
+    if not member:
+        return None
+
+    # Email-automation logic
+    if "invitation_status_id" in profile_data and profile_data["invitation_status_id"] != member.invitation_status_id:
+        member.previous_invitation_status_id = member.invitation_status_id
+        member.is_processed = False
+
+    for key, value in profile_data.items():
+        if hasattr(member, key):
+            setattr(member, key, value)
+    
+    db.commit()
+    db.refresh(member)
+    return member
+
 
 
 def remove_project_member(

@@ -139,10 +139,27 @@ def update_issue(
         return None
 
     update_data = issue_update.model_dump(exclude_unset=True)
+
+    # ── Email-automation: detect status change ──────────────────────────────
+    if "status_id" in update_data and update_data["status_id"] != db_issue.status_id:
+        update_data["previous_status_id"] = db_issue.status_id
+        update_data["is_processed"] = False
+
+
+    if "priority_id" in update_data and update_data["priority_id"] != db_issue.priority_id:
+        update_data["is_processed"] = False
+
+    if "severity_id" in update_data and update_data["severity_id"] != db_issue.severity_id:
+        update_data["is_processed"] = False
+
+    # Sync text labels from masters removed as VARCHAR columns are deprecated.
+
+
+
+
     changes = capture_audit_details(db_issue, update_data)
     for key, value in update_data.items():
         setattr(db_issue, key, value)
-
 
     db_issue.last_modified_time = datetime.now(timezone.utc)
 
@@ -152,6 +169,7 @@ def update_issue(
     )
     db.commit()
     return get_issue(db, issue_id)
+
 
 
 def delete_issue(

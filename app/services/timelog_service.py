@@ -90,8 +90,9 @@ def create_timelog(
         log_title       = timelog.log_title,
         notes           = timelog.notes,
         billing_type    = timelog.billing_type or "Billable",
-        approval_status = timelog.approval_status or "Pending",
+        approval_status_id = timelog.approval_status_id,
         general_log     = timelog.general_log or False,
+
     )
     db.add(db_timelog)
     db.flush()
@@ -121,6 +122,13 @@ def update_timelog(
         return None
 
     update_data = timelog_update.model_dump(exclude_unset=True)
+
+    # ── Email-automation: detect approval status change ─────────────────────
+    if "approval_status_id" in update_data and update_data["approval_status_id"] != db_timelog.approval_status_id:
+        update_data["previous_approval_status_id"] = db_timelog.approval_status_id
+        update_data["is_processed"] = False
+
+
     changes = capture_audit_details(db_timelog, update_data)
     for key, value in update_data.items():
         setattr(db_timelog, key, value)
@@ -131,6 +139,7 @@ def update_timelog(
     )
     db.commit()
     return get_timelog(db, timelog_id)
+
 
 
 def delete_timelog(
@@ -183,8 +192,9 @@ def create_timelogs_bulk(
             log_title       = log.log_title,
             notes           = log.notes,
             billing_type    = log.billing_type or "Billable",
-            approval_status = log.approval_status or "Pending",
+            approval_status_id = log.approval_status_id,
             general_log     = log.general_log or False,
+
         )
         db_logs.append(db_log)
         db.add(db_log)
