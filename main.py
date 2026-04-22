@@ -55,7 +55,7 @@ app.add_middleware(
 )
 
 _raw_origins: list[str] = [
-    "https://wonderful-sea-0d2c3fd00.1.azurestaticapps.net"
+    "https://wonderful-sea-0d2c3fd00.1.azurestaticapps.net",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
