@@ -47,7 +47,7 @@ if IS_PRODUCTION:
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=[
-        "trucszohoreplica.azurewebsites.net",
+        "trucszohoreplicaapp.azurewebsites.net",
         "*.azurewebsites.net",
         "localhost",
         "127.0.0.1",
@@ -69,7 +69,7 @@ if settings.BACKEND_CORS_ORIGINS:
 
 
 if IS_PRODUCTION:
-    _raw_origins = [o for o in _raw_origins if "azure" in o or "technorucs" in o] or ["https://trucszohoreplica.azurewebsites.net"]
+    _raw_origins = [o for o in _raw_origins if "azure" in o or "technorucs" in o] or ["https://trucszohoreplicaapp.azurewebsites.net"]
 
 app.add_middleware(
     CORSMiddleware,
