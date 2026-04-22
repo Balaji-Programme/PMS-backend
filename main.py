@@ -54,9 +54,8 @@ app.add_middleware(
     ],
 )
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
 _raw_origins: list[str] = [
+    "https://wonderful-sea-0d2c3fd00.1.azurestaticapps.net"
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
@@ -66,10 +65,14 @@ _raw_origins: list[str] = [
 if settings.BACKEND_CORS_ORIGINS:
     _raw_origins.extend([o.strip() for o in settings.BACKEND_CORS_ORIGINS])
 
-
-
 if IS_PRODUCTION:
-    _raw_origins = [o for o in _raw_origins if "azure" in o or "technorucs" in o] or ["https://trucszohoreplicaapp.azurewebsites.net"]
+    _raw_origins = [o for o in _raw_origins if "azure" in o or "technorucs" in o or "azurestaticapps.net" in o]
+    if "https://wonderful-sea-0d2c3fd00.1.azurestaticapps.net" not in _raw_origins:
+        _raw_origins.append("https://wonderful-sea-0d2c3fd00.1.azurestaticapps.net")
+    
+    if not _raw_origins:
+        _raw_origins = ["https://trucszohoreplicaapp.azurewebsites.net"]
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -105,6 +108,8 @@ class ForceHTTPSMiddleware:
         return await self.app(scope, receive, send)
 
 app.add_middleware(ForceHTTPSMiddleware)
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
