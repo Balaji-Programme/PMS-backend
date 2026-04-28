@@ -189,8 +189,6 @@ def create_project(
         template_id             = project.template_id,
         status_id               = project.status_id,
         priority_id             = project.priority_id,
-        status                  = project.status or "Active",
-        priority                = project.priority or "Medium",
 
         expected_start_date     = project.expected_start_date,
         expected_end_date       = project.expected_end_date,
