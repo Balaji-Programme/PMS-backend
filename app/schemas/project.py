@@ -120,6 +120,7 @@ class ProjectUpdate(BaseModel):
 
     owner_id: Optional[int]                 = None
     project_manager_id: Optional[int]       = None
+    project_manager_email: Optional[str]    = None
     delivery_head_id: Optional[int]         = None
 
     status_id: Optional[int]                = None

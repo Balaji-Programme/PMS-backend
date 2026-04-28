@@ -260,14 +260,22 @@ def update_project(
 
     update_data = project_update.model_dump(
         exclude_unset=True,
-        exclude={"user_emails"},
+        exclude={"user_emails", "project_manager_email"},
     )
+
+    # ── Resolve project_manager_email -> project_manager_id ─────────────────
+    if project_update.project_manager_email:
+        pm_user = db.execute(
+            select(User).where(User.email == project_update.project_manager_email)
+        ).scalar_one_or_none()
+        if pm_user:
+            update_data["project_manager_id"] = pm_user.id
 
     # ── Email-automation: detect project status/priority change ─────────────
     if "status_id" in update_data and update_data["status_id"] != db_project.status_id:
         update_data["previous_status_id"] = db_project.status_id
         update_data["is_processed"] = False
-    
+
     if "priority_id" in update_data and update_data["priority_id"] != db_project.priority_id:
         update_data["is_processed"] = False
 
