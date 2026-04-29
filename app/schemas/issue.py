@@ -45,10 +45,15 @@ class IssueUpdate(BaseModel):
     bug_name: Optional[str] = None
     description: Optional[str] = None
 
+    project_id: Optional[int] = None
     associated_team_id: Optional[int] = None
     milestone_id: Optional[int] = None
     assignee_id: Optional[int] = None
     reporter_id: Optional[int] = None
+
+    # Convenience email lists for M2M relationships
+    assignee_emails: Optional[List[str]] = None
+    follower_emails: Optional[List[str]] = None
 
     status_id: Optional[int] = None
     priority_id: Optional[int] = None

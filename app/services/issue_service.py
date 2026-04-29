@@ -138,7 +138,10 @@ def update_issue(
     if not db_issue:
         return None
 
-    update_data = issue_update.model_dump(exclude_unset=True)
+    update_data = issue_update.model_dump(
+        exclude_unset=True,
+        exclude={"assignee_emails", "follower_emails"},
+    )
 
     if "status_id" in update_data and update_data["status_id"] != db_issue.status_id:
         update_data["previous_status_id"] = db_issue.status_id
@@ -151,14 +154,24 @@ def update_issue(
     if "severity_id" in update_data and update_data["severity_id"] != db_issue.severity_id:
         update_data["is_processed"] = False
 
-   
-
-
 
 
     changes = capture_audit_details(db_issue, update_data)
     for key, value in update_data.items():
         setattr(db_issue, key, value)
+
+    # Update M2M relationships if provided
+    if issue_update.assignee_emails is not None:
+        assignees = (
+            db.execute(select(User).where(User.email.in_(issue_update.assignee_emails)))
+        ).scalars().all()
+        db_issue.assignees = list(assignees)
+
+    if issue_update.follower_emails is not None:
+        followers = (
+            db.execute(select(User).where(User.email.in_(issue_update.follower_emails)))
+        ).scalars().all()
+        db_issue.followers = list(followers)
 
     db_issue.last_modified_time = datetime.now(timezone.utc)
 
