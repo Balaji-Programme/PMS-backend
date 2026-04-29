@@ -27,7 +27,9 @@ from app.schemas.issue import IssueResponse
 from app.schemas.timelog import TimeLogResponse
 from app.schemas.milestone import MilestoneResponse
 from app.schemas.audit import AuditLogResponse
+from app.schemas.template import TemplateCloneRequest, ProjectTemplateResponse
 from app.services import project_service, task_service, issue_service, timelog_service, milestone_service
+from app.services.template_cloning_service import TemplateCloningService
 
 from app.services.teams_automation import create_ms_team_for_project
 
@@ -385,3 +387,18 @@ def get_project_milestones(
 ):
     return milestone_service.get_milestones(db, project_id=project_id, skip=skip, limit=limit)
 
+
+@router.post("/{project_id}/clone-to-template", response_model=ProjectTemplateResponse, status_code=status.HTTP_201_CREATED)
+def clone_project_to_template(
+    project_id: int,
+    request: TemplateCloneRequest,
+    db: Session = Depends(get_sync_db),
+    current_user=Depends(allow_authenticated),
+):
+    new_template = TemplateCloningService.clone_project_to_template(
+        db=db,
+        project_id=project_id,
+        request=request,
+        user_id=current_user.id,
+    )
+    return new_template

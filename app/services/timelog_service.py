@@ -123,7 +123,6 @@ def update_timelog(
 
     update_data = timelog_update.model_dump(exclude_unset=True)
 
-    # ── Email-automation: detect approval status change ─────────────────────
     if "approval_status_id" in update_data and update_data["approval_status_id"] != db_timelog.approval_status_id:
         update_data["previous_approval_status_id"] = db_timelog.approval_status_id
         update_data["is_processed"] = False

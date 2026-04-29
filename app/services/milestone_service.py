@@ -110,7 +110,6 @@ def update_milestone(
 
     update_data = milestone_update.model_dump(exclude_unset=True)
 
-    # ── Email-automation: detect status change ──────────────────────────────
     if "status_id" in update_data and update_data["status_id"] != db_milestone.status_id:
         update_data["previous_status_id"] = db_milestone.status_id
         update_data["is_processed"] = False

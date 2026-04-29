@@ -31,8 +31,6 @@ def get_next_sequence_id(db, model_class, project_name: str, project_id: int, se
     initials = get_project_initials(project_name)
     prefix = f"{initials}-{separator}"
     
-    # We query the max ID explicitly instead of ordering
-    # If the model is Timelog we might not have project_id directly on standard level, but task mapping. We'll rely on project_id being populated or fallback.
     query = db.query(model_class).filter(model_class.public_id.like(f"{prefix}%"))
     if hasattr(model_class, 'project_id'):
         query = query.filter(model_class.project_id == project_id)

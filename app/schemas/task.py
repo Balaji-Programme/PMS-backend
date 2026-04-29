@@ -64,7 +64,6 @@ class TaskUpdate(BaseModel):
     owner_emails: Optional[List[str]]    = None
     assignee_emails: Optional[List[str]] = None
 
-    # Email-automation: writer can set previous_status_id + reset is_processed
     previous_status_id: Optional[int] = None
     is_processed: Optional[bool]      = None
 
@@ -116,7 +115,6 @@ class TaskResponse(BaseModel):
     work_hours: Optional[float]
     billing_type: str
 
-    # Email-automation fields
     is_processed: bool                  = False
     previous_status_id: Optional[int]   = None
 

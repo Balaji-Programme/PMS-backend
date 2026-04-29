@@ -107,7 +107,6 @@ class Project(AuditMixin, Base):
     is_group: Mapped[bool]     = mapped_column(Boolean, default=False)
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # Email-automation tracking
     previous_status_id: Mapped[Optional[int]] = mapped_column(ForeignKey("master_lookups.id", ondelete="SET NULL"), nullable=True)
 
 

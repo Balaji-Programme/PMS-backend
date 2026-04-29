@@ -27,7 +27,6 @@ class ProjectMemberResponse(BaseModel):
     is_owner: bool                  = False
     created_at: Optional[datetime]  = None
 
-    # Email-automation
     is_processed: bool                          = False
     previous_invitation_status_id: Optional[int] = None
 
@@ -52,7 +51,6 @@ class ProjectMemberUpdate(BaseModel):
     invitation_status_id: Optional[int]         = None
     is_owner: Optional[bool]                = None
 
-    # Email-automation: set previous state before updating
     previous_invitation_status_id: Optional[int]   = None
     is_processed: Optional[bool]                = None
 
@@ -82,6 +80,7 @@ class ProjectCreate(BaseModel):
 
     owner_id: Optional[int]                 = None
     project_manager_id: Optional[int]       = None
+    project_manager_email: Optional[str]    = None
     delivery_head_id: Optional[int]         = None
     template_id: Optional[int]              = None
 
@@ -138,7 +137,6 @@ class ProjectUpdate(BaseModel):
     is_group: Optional[bool]                = None
     user_emails: Optional[List[str]]        = None
 
-    # Email-automation
     previous_status_id: Optional[int]   = None
     is_processed: Optional[bool]        = None
 
@@ -201,7 +199,6 @@ class ProjectResponse(BaseModel):
     is_group: bool                      = False
     is_processed: bool                  = False
 
-    # Email-automation
     previous_status_id: Optional[int]   = None
 
 

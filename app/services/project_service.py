@@ -263,7 +263,6 @@ def update_project(
         exclude={"user_emails", "project_manager_email"},
     )
 
-    # ── Resolve project_manager_email -> project_manager_id ─────────────────
     if project_update.project_manager_email:
         pm_user = db.execute(
             select(User).where(User.email == project_update.project_manager_email)
@@ -271,7 +270,6 @@ def update_project(
         if pm_user:
             update_data["project_manager_id"] = pm_user.id
 
-    # ── Email-automation: detect project status/priority change ─────────────
     if "status_id" in update_data and update_data["status_id"] != db_project.status_id:
         update_data["previous_status_id"] = db_project.status_id
         update_data["is_processed"] = False
@@ -441,7 +439,6 @@ def update_project_member(
     if not member:
         return None
 
-    # Email-automation logic
     if "invitation_status_id" in profile_data and profile_data["invitation_status_id"] != member.invitation_status_id:
         member.previous_invitation_status_id = member.invitation_status_id
         member.is_processed = False
@@ -489,7 +486,6 @@ def clone_from_template(
 ) -> None:
     from app.utils.ids import get_next_sequence_id
     
-    # Get project name for sequence prefix
     project = db.execute(select(Project).where(Project.id == project_id)).scalar_one_or_none()
     project_name = project.project_name if project else ""
 
@@ -501,10 +497,6 @@ def clone_from_template(
     
     tasks_to_add = tmpl_tasks_result.scalars().all()
     for tt in tasks_to_add:
-        # We need to manually increment since we're in a loop adding multiple
-        # Actually get_next_sequence_id queries the DB. To avoid same ID for all if we don't flush,
-        # we should either flush inside the loop or generate manually.
-        # Let's flush after each for simplicity ensuring uniqueness.
         pid = get_next_sequence_id(db, Task, project_name, project_id, "T")
         db.add(Task(
             public_id       = pid,

@@ -86,5 +86,11 @@ class ProjectTemplateResponse(BaseModel):
     created_at: Optional[datetime]    = None
     updated_at: Optional[datetime]    = None
     tasks: List[TemplateTaskResponse] = Field(default_factory=list)
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TemplateCloneRequest(BaseModel):
+    template_name: str = Field(..., min_length=1, max_length=255)
+    include_milestones: bool = False
 
     model_config = ConfigDict(from_attributes=True)

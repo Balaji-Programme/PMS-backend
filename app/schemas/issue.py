@@ -45,10 +45,15 @@ class IssueUpdate(BaseModel):
     bug_name: Optional[str] = None
     description: Optional[str] = None
 
+    project_id: Optional[int] = None
     associated_team_id: Optional[int] = None
     milestone_id: Optional[int] = None
     assignee_id: Optional[int] = None
     reporter_id: Optional[int] = None
+
+    # Convenience email lists for M2M relationships
+    assignee_emails: Optional[List[str]] = None
+    follower_emails: Optional[List[str]] = None
 
     status_id: Optional[int] = None
     priority_id: Optional[int] = None
@@ -66,7 +71,6 @@ class IssueUpdate(BaseModel):
     last_modified_time: Optional[datetime] = None
     estimated_hours: Optional[float] = None
 
-    # Email-automation
     previous_status_id: Optional[int] = None
     is_processed: Optional[bool]      = None
 
@@ -119,7 +123,6 @@ class IssueResponse(BaseModel):
     last_modified_time: Optional[datetime] = None
     estimated_hours: Optional[float]
 
-    # Email-automation fields
     is_processed: bool                  = False
     previous_status_id: Optional[int]   = None
 

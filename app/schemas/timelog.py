@@ -41,7 +41,6 @@ class TimeLogUpdate(BaseModel):
     billing_type: Optional[str]     = None
     approval_status_id: Optional[int]  = None
 
-    # Email-automation
     previous_approval_status_id: Optional[int] = None
     is_processed: Optional[bool]            = None
 
@@ -82,7 +81,6 @@ class TimeLogResponse(BaseModel):
     general_log: bool
 
 
-    # Email-automation fields
     is_processed: bool                      = False
     previous_approval_status_id: Optional[int] = None
 

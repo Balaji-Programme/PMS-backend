@@ -42,7 +42,6 @@ def add_exception_handlers(app: FastAPI):
         with open("error_log.txt", "a") as f:
             f.write(f"\n[{datetime.now()}] GLOBAL ERROR on {request.method} {request.url.path}:\n" + err + "\n")
         
-        # Manually add CORS headers to ensure the frontend can see the error
         headers = {
             "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
             "Access-Control-Allow-Credentials": "true",

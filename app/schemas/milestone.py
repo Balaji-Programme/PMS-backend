@@ -44,7 +44,6 @@ class MilestoneUpdate(BaseModel):
     end_date: Optional[date]      = None
     completion_percentage: Optional[int] = None
 
-    # Email-automation
     previous_status_id: Optional[int]   = None
 
     is_processed: Optional[bool]        = None
@@ -85,7 +84,6 @@ class MilestoneResponse(BaseModel):
     end_date: Optional[date]
     completion_percentage: Optional[int]
 
-    # Email-automation fields
     is_processed: bool              = False
     previous_status_id: Optional[int] = None
 
