@@ -54,7 +54,7 @@ def ms_callback(payload: MSCallbackRequest, db: Session = Depends(get_sync_db)):
             detail="Microsoft SSO is not configured on this server.",
         )
 
-    token_url = f"https://login.microsoftonline.com/{settings.AZURE_TENANT_ID}/oauth2/v2.0/token"
+    token_url = f"{settings.MS_LOGIN_BASE_URL}/{settings.AZURE_TENANT_ID}/oauth2/v2.0/token"
     try:
         logger.info("[SSO] Exchanging code with Microsoft...")
         with Client() as client:
@@ -84,7 +84,7 @@ def ms_callback(payload: MSCallbackRequest, db: Session = Depends(get_sync_db)):
         logger.info("[SSO] Fetching user profile from Microsoft Graph...")
         with Client() as client:
             graph_resp = client.get(
-                "https://graph.microsoft.com/v1.0/me",
+                f"{settings.MS_GRAPH_BASE_URL}/v1.0/me",
                 headers={"Authorization": f"Bearer {ms_tokens['access_token']}"},
                 timeout=10.0,
             )

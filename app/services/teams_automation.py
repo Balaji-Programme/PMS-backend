@@ -28,12 +28,12 @@ def create_ms_team_for_project(
         with Client(timeout=30.0) as client:
             
             token_resp = client.post(
-                f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+                f"{settings.MS_LOGIN_BASE_URL}/{tenant_id}/oauth2/v2.0/token",
                 data={
                     "grant_type":    "client_credentials",
                     "client_id":     client_id,
                     "client_secret": client_secret,
-                    "scope":         "https://graph.microsoft.com/.default",
+                    "scope":         f"{settings.MS_GRAPH_BASE_URL}/.default",
                 },
             )
             token_resp.raise_for_status()
@@ -45,10 +45,10 @@ def create_ms_team_for_project(
             }
 
             create_resp = client.post(
-                "https://graph.microsoft.com/v1.0/teams",
+                f"{settings.MS_GRAPH_BASE_URL}/v1.0/teams",
                 headers=headers,
                 json={
-                    "template@odata.bind": "https://graph.microsoft.com/v1.0/teamsTemplates('standard')",
+                    "template@odata.bind": f"{settings.MS_GRAPH_BASE_URL}/v1.0/teamsTemplates('standard')",
                     "displayName":         project_name[:256],
                     "description":         f"TechnoRUCS PMS — {project_name} (Project ID: {project_id})",
                     "memberSettings": {"allowCreateUpdateChannels": True},
@@ -74,12 +74,12 @@ def create_ms_team_for_project(
             for email in member_emails:
                 try:
                     member_resp = client.post(
-                        f"https://graph.microsoft.com/v1.0/teams/{team_id}/members",
+                        f"{settings.MS_GRAPH_BASE_URL}/v1.0/teams/{team_id}/members",
                         headers=headers,
                         json={
                             "@odata.type":    "#microsoft.graph.aadUserConversationMember",
                             "roles":          [],
-                            "user@odata.bind": f"https://graph.microsoft.com/v1.0/users('{email}')",
+                            "user@odata.bind": f"{settings.MS_GRAPH_BASE_URL}/v1.0/users('{email}')",
                         },
                     )
                     if member_resp.status_code not in (200, 201):

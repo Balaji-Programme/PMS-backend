@@ -54,7 +54,7 @@ app = FastAPI(
 
 add_exception_handlers(app)
 
-app.add_middleware(GZipMiddleware, minimum_size=1024)
+app.add_middleware(GZipMiddleware, minimum_size=settings.GZIP_MINIMUM_SIZE)
 
 if IS_PRODUCTION:
     app.add_middleware(HTTPSRedirectMiddleware)
@@ -108,4 +108,4 @@ def root():
     return {"message": "Welcome to TechnoRUCS PMS Backend API"}
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=settings.APP_PORT, reload=True)
