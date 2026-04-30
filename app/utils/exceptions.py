@@ -2,10 +2,10 @@ from fastapi import Request, FastAPI
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi.exceptions import RequestValidationError
-import logging
+from logging import getLogger
 from datetime import datetime
 
-logger = logging.getLogger("app.exceptions")
+logger = getLogger("app.exceptions")
 
 from sqlalchemy.exc import IntegrityError
 import re

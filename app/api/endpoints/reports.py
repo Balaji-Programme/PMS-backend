@@ -130,49 +130,49 @@ def export_csv_report(report_type: str = "projects", db: Session = Depends(get_s
 
     def iter_csv():
         output = io.StringIO()
-        writer = csv.writer(output)
+        csv_writer = csv.writer(output)
 
         if report_type == "projects":
-            writer.writerow(["ID", "Name", "Client", "Start Date", "End Date", "Estimated Hours"])
+            csv_writer.writerow(["ID", "Name", "Client", "Start Date", "End Date", "Estimated Hours"])
             yield output.getvalue()
             output.seek(0)
             output.truncate(0)
             for p in db.query(Project).yield_per(1000):
-                writer.writerow([p.public_id, p.project_name, p.client_name or "", str(p.expected_start_date or ""), str(p.expected_end_date or ""), p.estimated_hours or 0])
+                csv_writer.writerow([p.public_id, p.project_name, p.client_name or "", str(p.expected_start_date or ""), str(p.expected_end_date or ""), p.estimated_hours or 0])
                 yield output.getvalue()
                 output.seek(0)
                 output.truncate(0)
 
         elif report_type == "tasks":
-            writer.writerow(["ID", "Title", "Project ID", "Start Date", "End Date", "Estimated Hours"])
+            csv_writer.writerow(["ID", "Title", "Project ID", "Start Date", "End Date", "Estimated Hours"])
             yield output.getvalue()
             output.seek(0)
             output.truncate(0)
             for t in db.query(Task).yield_per(1000):
-                writer.writerow([t.public_id, t.task_name, t.project_id, str(t.start_date or ""), str(t.due_date or ""), t.estimated_hours or 0])
+                csv_writer.writerow([t.public_id, t.task_name, t.project_id, str(t.start_date or ""), str(t.due_date or ""), t.estimated_hours or 0])
                 yield output.getvalue()
                 output.seek(0)
                 output.truncate(0)
 
         elif report_type == "issues":
-            writer.writerow(["ID", "Title", "Project ID", "Start Date", "End Date", "Estimated Hours"])
+            csv_writer.writerow(["ID", "Title", "Project ID", "Start Date", "End Date", "Estimated Hours"])
             yield output.getvalue()
             output.seek(0)
             output.truncate(0)
             for i in db.query(Issue).yield_per(1000):
-                writer.writerow([i.public_id, i.bug_name, i.project_id, str(i.created_at or ""), str(i.due_date or ""), 0])
+                csv_writer.writerow([i.public_id, i.bug_name, i.project_id, str(i.created_at or ""), str(i.due_date or ""), 0])
                 yield output.getvalue()
                 output.seek(0)
                 output.truncate(0)
 
         elif report_type == "timelogs":
             from sqlalchemy.orm import joinedload
-            writer.writerow(["ID", "User Email", "Task ID", "Date", "Hours", "Notes"])
+            csv_writer.writerow(["ID", "User Email", "Task ID", "Date", "Hours", "Notes"])
             yield output.getvalue()
             output.seek(0)
             output.truncate(0)
             for tl in db.query(TimeLog).options(joinedload(TimeLog.user)).yield_per(1000):
-                writer.writerow([tl.id, tl.user.email if tl.user else "", tl.task_id, str(tl.date or ""), tl.daily_log_hours, tl.notes or ""])
+                csv_writer.writerow([tl.id, tl.user.email if tl.user else "", tl.task_id, str(tl.date or ""), tl.daily_log_hours, tl.notes or ""])
                 yield output.getvalue()
                 output.seek(0)
                 output.truncate(0)

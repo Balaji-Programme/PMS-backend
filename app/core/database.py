@@ -5,12 +5,11 @@ from typing import Generator
 from sqlalchemy import Column, Boolean, DateTime, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlalchemy.sql import func
-import ssl
-import logging
+from logging import getLogger
 
 from app.core.config import settings
 
-logger = logging.getLogger("app.database")
+logger = getLogger("app.database")
 
 connect_args: dict = {}
 if "azure" in settings.MYSQL_SERVER:

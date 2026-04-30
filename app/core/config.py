@@ -52,8 +52,8 @@ class Settings(BaseSettings):
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, str) and v.startswith("["):
-            import json
-            return json.loads(v)
+            from json import loads
+            return loads(v)
         elif isinstance(v, list):
             return v
         return v

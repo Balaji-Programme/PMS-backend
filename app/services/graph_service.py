@@ -1,5 +1,5 @@
-import msal
-import requests
+from msal import ConfidentialClientApplication
+from requests import get
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,7 @@ def get_graph_token() -> str:
         )
 
     authority = f"https://login.microsoftonline.com/{settings.AZURE_TENANT_ID}"
-    msal_app = msal.ConfidentialClientApplication(
+    msal_app = ConfidentialClientApplication(
         settings.AZURE_CLIENT_ID,
         authority=authority,
         client_credential=settings.AZURE_CLIENT_SECRET,
@@ -115,7 +115,7 @@ def search_azure_users(
         f"&$count=true"
     )
 
-    response = requests.get(url, headers=headers)
+    response = get(url, headers=headers)
 
     if response.status_code != 200:
         print(f"[GRAPH API ERROR] {response.status_code} — {response.text}")

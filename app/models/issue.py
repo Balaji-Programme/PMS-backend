@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import enum
+from enum import Enum
 from datetime import date, datetime
 from typing import List, Optional
 

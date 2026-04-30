@@ -73,8 +73,8 @@ def write_audit(
                 ])
     except Exception:
         
-        import logging
-        logging.getLogger("app.audit").warning(
+        from logging import getLogger
+        getLogger("app.audit").warning(
             "Audit write failed for action=%s resource=%s record=%s",
             action_type, resource_name, record_id,
             exc_info=True,

@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import logging
+from logging import getLogger
 from typing import List, Optional
 
-logger = logging.getLogger("app.teams_automation")
+logger = getLogger("app.teams_automation")
 
 def create_ms_team_for_project(
     project_name: str,
     member_emails: List[str],
     project_id: Optional[int] = None,
 ) -> Optional[str]:
-    import httpx
+    from httpx import Client
     from app.core.config import settings
 
     tenant_id     = settings.AZURE_TENANT_ID
@@ -25,7 +25,7 @@ def create_ms_team_for_project(
         return None
 
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with Client(timeout=30.0) as client:
             
             token_resp = client.post(
                 f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",

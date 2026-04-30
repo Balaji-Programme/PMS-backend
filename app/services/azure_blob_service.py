@@ -1,7 +1,7 @@
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from app.core.config import settings
-import uuid
-import os
+from uuid import uuid4
+from os.path import splitext
 from typing import BinaryIO, Optional
 
 class AzureBlobService:
@@ -25,8 +25,8 @@ class AzureBlobService:
         if not self.container_client:
             raise Exception("Azure Blob Storage is not configured.")
 
-        file_ext = os.path.splitext(filename)[1]
-        blob_name = f"{uuid.uuid4()}{file_ext}"
+        file_ext = splitext(filename)[1]
+        blob_name = f"{uuid4()}{file_ext}"
 
         blob_client = self.container_client.get_blob_client(blob_name)
         content_settings = ContentSettings(content_type=content_type)
