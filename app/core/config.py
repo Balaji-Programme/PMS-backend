@@ -52,13 +52,24 @@ class Settings(BaseSettings):
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, str) and v.startswith("["):
-            import json
-            return json.loads(v)
+            from json import loads
+            return loads(v)
         elif isinstance(v, list):
             return v
         return v
 
     PROXY_TRUSTED_HOSTS: str = Field(default="127.0.0.1")
+
+    DB_POOL_SIZE: int = Field(default=10)
+    DB_MAX_OVERFLOW: int = Field(default=30)
+    DB_POOL_RECYCLE: int = Field(default=280)
+    DB_POOL_TIMEOUT: int = Field(default=20)
+
+    GZIP_MINIMUM_SIZE: int = Field(default=1024)
+    APP_PORT: int = Field(default=8000)
+
+    MS_LOGIN_BASE_URL: str = Field(default="https://login.microsoftonline.com")
+    MS_GRAPH_BASE_URL: str = Field(default="https://graph.microsoft.com")
 
     AZURE_TENANT_ID: Optional[str] = None
     AZURE_CLIENT_ID: Optional[str] = None

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import enum
+from enum import Enum
 from datetime import date, datetime
 from typing import List, Optional
 
@@ -13,12 +13,12 @@ from sqlalchemy.sql import func
 
 from app.core.database import Base, AuditMixin
 
-class BillingModel(str, enum.Enum):
+class BillingModel(str, Enum):
     TM = "T&M"
     FIXED = "FixedMonthly"
     MILESTONE = "Milestone"
 
-class ProjectType(str, enum.Enum):
+class ProjectType(str, Enum):
     INTERNAL = "internal"
     EXTERNAL = "external"
 

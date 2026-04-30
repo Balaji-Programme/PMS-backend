@@ -5,12 +5,11 @@ from typing import Generator
 from sqlalchemy import Column, Boolean, DateTime, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlalchemy.sql import func
-import ssl
-import logging
+from logging import getLogger
 
 from app.core.config import settings
 
-logger = logging.getLogger("app.database")
+logger = getLogger("app.database")
 
 connect_args: dict = {}
 if "azure" in settings.MYSQL_SERVER:
@@ -20,10 +19,10 @@ engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=30,
-    pool_recycle=280,
-    pool_timeout=20,
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_MAX_OVERFLOW,
+    pool_recycle=settings.DB_POOL_RECYCLE,
+    pool_timeout=settings.DB_POOL_TIMEOUT,
     echo=False,
 )
 

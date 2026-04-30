@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import logging
+from logging import getLogger
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-import httpx
+from httpx import Client, HTTPStatusError
 
 from jose import jwt, JWTError
 
@@ -17,7 +17,7 @@ from app.schemas.auth import MSCallbackRequest, TokenResponse, RefreshTokenReque
 from app.services.user_service import upsert_o365_user
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 def _build_token_response(user: User) -> TokenResponse:
     access_token = create_access_token(
@@ -54,10 +54,10 @@ def ms_callback(payload: MSCallbackRequest, db: Session = Depends(get_sync_db)):
             detail="Microsoft SSO is not configured on this server.",
         )
 
-    token_url = f"https://login.microsoftonline.com/{settings.AZURE_TENANT_ID}/oauth2/v2.0/token"
+    token_url = f"{settings.MS_LOGIN_BASE_URL}/{settings.AZURE_TENANT_ID}/oauth2/v2.0/token"
     try:
         logger.info("[SSO] Exchanging code with Microsoft...")
-        with httpx.Client() as client:
+        with Client() as client:
             resp = client.post(
                 token_url,
                 data={
@@ -73,7 +73,7 @@ def ms_callback(payload: MSCallbackRequest, db: Session = Depends(get_sync_db)):
             resp.raise_for_status()
             ms_tokens = resp.json()
             logger.info("[SSO] Token exchange successful")
-    except httpx.HTTPStatusError as exc:
+    except HTTPStatusError as exc:
         logger.error("[SSO] MS token exchange failed: %s", exc.response.text)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Microsoft rejected the authorization code.")
     except Exception as exc:
@@ -82,9 +82,9 @@ def ms_callback(payload: MSCallbackRequest, db: Session = Depends(get_sync_db)):
 
     try:
         logger.info("[SSO] Fetching user profile from Microsoft Graph...")
-        with httpx.Client() as client:
+        with Client() as client:
             graph_resp = client.get(
-                "https://graph.microsoft.com/v1.0/me",
+                f"{settings.MS_GRAPH_BASE_URL}/v1.0/me",
                 headers={"Authorization": f"Bearer {ms_tokens['access_token']}"},
                 timeout=10.0,
             )
