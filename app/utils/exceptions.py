@@ -2,10 +2,10 @@ from fastapi import Request, FastAPI
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi.exceptions import RequestValidationError
-import logging
+from logging import getLogger
 from datetime import datetime
 
-logger = logging.getLogger("app.exceptions")
+logger = getLogger("app.exceptions")
 
 from sqlalchemy.exc import IntegrityError
 import re
@@ -14,10 +14,6 @@ def add_exception_handlers(app: FastAPI):
     @app.exception_handler(SQLAlchemyError)
     def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
         logger.exception("Database error on %s %s", request.method, request.url.path)
-        headers = {
-            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
-            "Access-Control-Allow-Credentials": "true",
-        }
 
         if isinstance(exc, IntegrityError):
             msg = str(exc.orig)
@@ -27,32 +23,24 @@ def add_exception_handlers(app: FastAPI):
                     dup_val = match.group(1)
                     return JSONResponse(
                         status_code=400,
-                        content={"detail": f"The value '{dup_val}' already exists and must be unique."},
-                        headers=headers
+                        content={"detail": f"The value '{dup_val}' already exists and must be unique."}
                     )
             return JSONResponse(
                 status_code=400,
-                content={"detail": "A record with this unique value already exists."},
-                headers=headers
+                content={"detail": "A record with this unique value already exists."}
             )
 
         return JSONResponse(
             status_code=500,
-            content={"detail": "Internal Database Error", "type": str(type(exc).__name__)},
-            headers=headers
+            content={"detail": "Internal Database Error"}
         )
 
     @app.exception_handler(RequestValidationError)
     def validation_exception_handler(request: Request, exc: RequestValidationError):
         logger.warning("Validation error on %s %s: %s", request.method, request.url.path, exc.errors())
-        headers = {
-            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
-            "Access-Control-Allow-Credentials": "true",
-        }
         return JSONResponse(
             status_code=422,
-            content={"detail": "Validation Error", "errors": exc.errors()},
-            headers=headers
+            content={"detail": "Validation Error", "errors": exc.errors()}
         )
 
     @app.exception_handler(Exception)
@@ -63,15 +51,7 @@ def add_exception_handlers(app: FastAPI):
         with open("error_log.txt", "a") as f:
             f.write(f"\n[{datetime.now()}] GLOBAL ERROR on {request.method} {request.url.path}:\n" + err + "\n")
         
-        headers = {
-            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*",
-        }
-        
         return JSONResponse(
             status_code=500,
-            content={"detail": "An unexpected error occurred", "type": str(type(exc).__name__), "msg": str(exc)},
-            headers=headers
+            content={"detail": "An unexpected error occurred"}
         )

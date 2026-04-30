@@ -160,7 +160,7 @@ def update_issue(
     for key, value in update_data.items():
         setattr(db_issue, key, value)
 
-    # Update M2M relationships if provided
+  
     if issue_update.assignee_emails is not None:
         assignees = (
             db.execute(select(User).where(User.email.in_(issue_update.assignee_emails)))

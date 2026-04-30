@@ -15,19 +15,20 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL(self) -> str:
-        import urllib.parse
-        encoded_password = urllib.parse.quote_plus(self.MYSQL_PASSWORD)
+        from urllib.parse import quote_plus
+        encoded_password = quote_plus(self.MYSQL_PASSWORD)
         return f"mysql+pymysql://{self.MYSQL_USER}:{encoded_password}@{self.MYSQL_SERVER}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
 
     @property
     def ASYNC_DATABASE_URL(self) -> str:
-        import urllib.parse
-        encoded_password = urllib.parse.quote_plus(self.MYSQL_PASSWORD)
+        from urllib.parse import quote_plus
+        encoded_password = quote_plus(self.MYSQL_PASSWORD)
         return f"mysql+aiomysql://{self.MYSQL_USER}:{encoded_password}@{self.MYSQL_SERVER}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
 
     SECRET_KEY: str = Field(alias="SECRET_KEY")
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     BACKEND_CORS_ORIGINS: Union[list[str], str] = Field(default=[])
 
@@ -37,15 +38,45 @@ class Settings(BaseSettings):
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, str) and v.startswith("["):
-            import json
-            return json.loads(v)
+            from json import loads
+            return loads(v)
         elif isinstance(v, list):
             return v
         return v
 
+    ALLOWED_HOSTS: Union[list[str], str] = Field(default=["*"])
+
+    @field_validator("ALLOWED_HOSTS", mode="before")
+    @classmethod
+    def assemble_allowed_hosts(cls, v: Union[str, list[str]]) -> list[str]:
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, str) and v.startswith("["):
+            from json import loads
+            return loads(v)
+        elif isinstance(v, list):
+            return v
+        return v
+
+    PROXY_TRUSTED_HOSTS: str = Field(default="127.0.0.1")
+
+    DB_POOL_SIZE: int = Field(default=10)
+    DB_MAX_OVERFLOW: int = Field(default=30)
+    DB_POOL_RECYCLE: int = Field(default=280)
+    DB_POOL_TIMEOUT: int = Field(default=20)
+
+    GZIP_MINIMUM_SIZE: int = Field(default=1024)
+    APP_PORT: int = Field(default=8000)
+
+    MS_LOGIN_BASE_URL: str = Field(default="https://login.microsoftonline.com")
+    MS_GRAPH_BASE_URL: str = Field(default="https://graph.microsoft.com")
+
     AZURE_TENANT_ID: Optional[str] = None
     AZURE_CLIENT_ID: Optional[str] = None
     AZURE_CLIENT_SECRET: Optional[str] = None
+
+    AZURE_STORAGE_CONNECTION_STRING: Optional[str] = None
+    AZURE_STORAGE_CONTAINER_NAME: Optional[str] = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -52,10 +52,8 @@ def update_timesheet(timesheet_id: int, timesheet: TimesheetUpdate, db: Session 
         raise HTTPException(status_code=404, detail="Timesheet not found")
     return updated
 
-@router.delete("/{timesheet_id}", dependencies=[Depends(allow_team_lead_plus)])
+@router.delete("/{timesheet_id}", status_code=204, dependencies=[Depends(allow_team_lead_plus)])
 def delete_timesheet(timesheet_id: int, db: Session = Depends(get_sync_db), current_user = Depends(allow_team_lead_plus)):
-
     success = timesheet_service.delete_timesheet(db, timesheet_id=timesheet_id, actor_id=current_user.o365_id or str(current_user.id))
     if not success:
         raise HTTPException(status_code=404, detail="Timesheet not found")
-    return {"message": "Timesheet deleted successfully"}
