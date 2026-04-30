@@ -44,6 +44,16 @@ def create_access_token(
         algorithm=settings.ALGORITHM,
     )
 
+def create_refresh_token(
+    subject: Union[str, Any],
+) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    return jwt.encode(
+        {"exp": expire, "sub": str(subject), "type": "refresh"},
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+    )
+
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
     db: Session = Depends(get_sync_db),

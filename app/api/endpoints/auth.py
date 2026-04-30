@@ -7,11 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import httpx
 
+from jose import jwt, JWTError
+
 from app.core.config import settings
 from app.core.database import get_sync_db
-from app.core.security import create_access_token, get_current_user
+from app.core.security import create_access_token, create_refresh_token, get_current_user
 from app.models.user import User
-from app.schemas.auth import MSCallbackRequest, TokenResponse
+from app.schemas.auth import MSCallbackRequest, TokenResponse, RefreshTokenRequest
 from app.services.user_service import upsert_o365_user
 
 router = APIRouter()
@@ -22,10 +24,13 @@ def _build_token_response(user: User) -> TokenResponse:
         subject=user.id,
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
+    refresh_token = create_refresh_token(subject=user.id)
+    
     role_data = {"id": user.role.id, "name": user.role.name} if user.role else None
     return TokenResponse(
-        access_token = access_token,
-        token_type   = "bearer",
+        access_token  = access_token,
+        refresh_token = refresh_token,
+        token_type    = "bearer",
         user_id      = user.id,
         public_id    = user.public_id,
         email        = user.email,
@@ -129,3 +134,22 @@ def get_current_user_profile(current_user: User = Depends(get_current_user)):
         "is_external":  current_user.is_external,
         "is_synced":    current_user.is_synced,
     }
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(payload: RefreshTokenRequest, db: Session = Depends(get_sync_db)):
+    try:
+        decoded = jwt.decode(payload.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if decoded.get("type") != "refresh":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+        
+        user_id = decoded.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+            
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if not user or user.is_deleted or not user.is_active:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+            
+        return _build_token_response(user)
+        
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token")
