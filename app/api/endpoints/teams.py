@@ -35,12 +35,11 @@ def update_team(team_id: int, team_update: TeamUpdate, db: Session = Depends(get
         raise HTTPException(status_code=404, detail="Team not found")
     return db_team
 
-@router.delete("/{team_id}")
+@router.delete("/{team_id}", status_code=204)
 def delete_team(team_id: int, db: Session = Depends(get_sync_db), current_user = Depends(allow_authenticated)):
     success = team_service.delete_team(db, team_id=team_id, actor_id=current_user.o365_id or str(current_user.id))
     if not success:
         raise HTTPException(status_code=404, detail="Team not found")
-    return {"message": "Team deleted successfully"}
 
 @router.post("/{team_id}/members/{user_email}")
 def add_team_member(team_id: int, user_email: str, db: Session = Depends(get_sync_db), current_user = Depends(allow_authenticated)):

@@ -57,7 +57,7 @@ def update_task_list(
         raise HTTPException(status_code=404, detail="Task List not found")
     return custom
 
-@router.delete("/{task_list_id}")
+@router.delete("/{task_list_id}", status_code=204)
 def delete_task_list(
     task_list_id: int,
     db: Session = Depends(get_sync_db),
@@ -66,4 +66,3 @@ def delete_task_list(
     success = task_list_service.delete_task_list(db, task_list_id=task_list_id, actor_id=current_user.o365_id or str(current_user.id))
     if not success:
         raise HTTPException(status_code=404, detail="Task List not found")
-    return {"message": "Task List deleted successfully"}

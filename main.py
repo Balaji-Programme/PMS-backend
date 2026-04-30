@@ -13,7 +13,22 @@ from app.core.database import engine, Base
 from app.api.router import api_router
 
 from app.utils.exceptions import add_exception_handlers
-from app.models import *
+from app.models.masters import UserStatus, Skill, Status, Priority
+from app.models.roles import Role
+from app.models.user import User, user_team_link
+from app.models.team import Team
+from app.models.template import ProjectTemplate, TemplateTask
+from app.models.project import Project, ProjectMember
+from app.models.task import Task
+from app.models.issue import Issue
+from app.models.timelog import TimeLog
+from app.models.milestone import Milestone
+from app.models.task_list import TaskList
+from app.models.document import Document
+from app.models.project_group import ProjectGroup
+from app.models.audit import AuditFieldsMapping, AuditLogs, AuditLogDetails, AuditMetaDataInfo
+from app.models.master import MasterLookup
+from app.models.timesheet import Timesheet
 from fastapi.staticfiles import StaticFiles
 
 if not os.path.exists("uploads"):
@@ -39,44 +54,19 @@ app = FastAPI(
 
 add_exception_handlers(app)
 
-app.add_middleware(GZipMiddleware, minimum_size=1024)
+app.add_middleware(GZipMiddleware, minimum_size=settings.GZIP_MINIMUM_SIZE)
 
 if IS_PRODUCTION:
     app.add_middleware(HTTPSRedirectMiddleware)
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=[
-        "trucszohoreplicaapp.azurewebsites.net",
-        "*.azurewebsites.net",
-        "localhost",
-        "127.0.0.1",
-    ],
+    allowed_hosts=settings.ALLOWED_HOSTS,
 )
-
-_raw_origins: list[str] = [
-    "https://wonderful-sea-0d2c3fd00.1.azurestaticapps.net",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
-if settings.BACKEND_CORS_ORIGINS:
-    _raw_origins.extend([o.strip() for o in settings.BACKEND_CORS_ORIGINS])
-
-if IS_PRODUCTION:
-    _raw_origins = [o for o in _raw_origins if "azure" in o or "technorucs" in o or "azurestaticapps.net" in o]
-    if "https://wonderful-sea-0d2c3fd00.1.azurestaticapps.net" not in _raw_origins:
-        _raw_origins.append("https://wonderful-sea-0d2c3fd00.1.azurestaticapps.net")
-    
-    if not _raw_origins:
-        _raw_origins = ["https://trucszohoreplicaapp.azurewebsites.net"]
-
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_raw_origins,
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[
@@ -93,7 +83,7 @@ app.add_middleware(
     max_age=600,
 )
 
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.PROXY_TRUSTED_HOSTS)
 
 class ForceHTTPSMiddleware:
     def __init__(self, app):
@@ -118,4 +108,4 @@ def root():
     return {"message": "Welcome to TechnoRUCS PMS Backend API"}
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=settings.APP_PORT, reload=True)

@@ -1,5 +1,5 @@
-import msal
-import requests
+from msal import ConfidentialClientApplication
+from requests import get
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 
@@ -13,19 +13,19 @@ def get_graph_token() -> str:
             "Set AZURE_TENANT_ID, AZURE_CLIENT_ID, and AZURE_CLIENT_SECRET in .env."
         )
 
-    authority = f"https://login.microsoftonline.com/{settings.AZURE_TENANT_ID}"
-    msal_app = msal.ConfidentialClientApplication(
+    authority = f"{settings.MS_LOGIN_BASE_URL}/{settings.AZURE_TENANT_ID}"
+    msal_app = ConfidentialClientApplication(
         settings.AZURE_CLIENT_ID,
         authority=authority,
         client_credential=settings.AZURE_CLIENT_SECRET,
     )
 
     result = msal_app.acquire_token_silent(
-        ["https://graph.microsoft.com/.default"], account=None
+        [f"{settings.MS_GRAPH_BASE_URL}/.default"], account=None
     )
     if not result:
         result = msal_app.acquire_token_for_client(
-            scopes=["https://graph.microsoft.com/.default"]
+            scopes=[f"{settings.MS_GRAPH_BASE_URL}/.default"]
         )
 
     if "access_token" in result:
@@ -108,14 +108,14 @@ def search_azure_users(
     )
 
     url = (
-        "https://graph.microsoft.com/v1.0/users"
+        f"{settings.MS_GRAPH_BASE_URL}/v1.0/users"
         f"?$filter={odata_filter}"
         f"&$select=id,displayName,mail"
         f"&$top=10"
         f"&$count=true"
     )
 
-    response = requests.get(url, headers=headers)
+    response = get(url, headers=headers)
 
     if response.status_code != 200:
         print(f"[GRAPH API ERROR] {response.status_code} — {response.text}")

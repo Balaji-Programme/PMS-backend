@@ -54,4 +54,4 @@ class TemplateCloningService:
             return new_template
         except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Error cloning project to template: {str(e)}")
+            raise e

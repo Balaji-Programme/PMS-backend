@@ -114,7 +114,7 @@ def update_timelog(
     return updated
 
 
-@router.delete("/{timelog_id}", dependencies=[Depends(allow_team_lead_plus)])
+@router.delete("/{timelog_id}", status_code=204, dependencies=[Depends(allow_team_lead_plus)])
 def delete_timelog(
     timelog_id: int,
     db: Session = Depends(get_sync_db),
@@ -127,4 +127,3 @@ def delete_timelog(
     )
     if not success:
         raise HTTPException(status_code=404, detail="TimeLog not found")
-    return {"message": "TimeLog deleted successfully"}

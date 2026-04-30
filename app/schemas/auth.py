@@ -9,6 +9,7 @@ class MSCallbackRequest(BaseModel):
 class TokenResponse(BaseModel):
 
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user_id: int
     public_id: str
@@ -19,6 +20,9 @@ class TokenResponse(BaseModel):
     role: Optional[Dict[str, Any]] = None
     is_external: bool = False
     is_synced: bool = False
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
 
 class Token(BaseModel):
     access_token: str
