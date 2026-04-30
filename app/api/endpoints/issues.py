@@ -123,7 +123,7 @@ def update_issue(
     return updated
 
 
-@router.delete("/{issue_id}", dependencies=[Depends(allow_team_lead_plus)])
+@router.delete("/{issue_id}", status_code=204, dependencies=[Depends(allow_team_lead_plus)])
 def delete_issue(
     issue_id: int,
     db: Session = Depends(get_sync_db),
@@ -136,4 +136,3 @@ def delete_issue(
     )
     if not success:
         raise HTTPException(status_code=404, detail="Issue not found")
-    return {"message": "Issue deleted successfully"}
