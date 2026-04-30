@@ -18,7 +18,4 @@ def search_users(
     db: Session = Depends(get_sync_db),
 ):
 
-    try:
-        return search_azure_users(q, db=db)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return search_azure_users(q, db=db)

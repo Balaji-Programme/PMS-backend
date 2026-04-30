@@ -48,40 +48,67 @@ def create_project_endpoint(
     current_user=Depends(allow_pm),
 ):
 
-    try:
-        if not project.owner_id:
-            project.owner_id = current_user.id
+    if not project.owner_id:
+        project.owner_id = current_user.id
 
-        db_project = project_service.create_project(
-            db=db, project=project, actor_id=current_user.public_id
-        )
+    db_project = project_service.create_project(
+        db=db, project=project, actor_id=current_user.public_id
+    )
 
-        member_emails = project.user_emails or []
-        def background_teams_worker(proj_name: str, emails: List[str], proj_id: int):
-            from app.core.database import SessionLocal
-            with SessionLocal() as db_session:
-                from app.services.teams_automation import create_ms_team_for_project
-                team_id = create_ms_team_for_project(proj_name, emails, proj_id)
-                if team_id:
-                    proj = project_service.get_project(db_session, proj_id)
-                    if proj:
-                        proj.ms_teams_group_id = team_id
-                        db_session.commit()
+    member_emails = project.user_emails or []
+    def background_teams_worker(proj_name: str, emails: List[str], proj_id: int):
+        from app.core.database import SessionLocal
+        with SessionLocal() as db_session:
+            from app.services.teams_automation import create_ms_team_for_project
+            team_id = create_ms_team_for_project(proj_name, emails, proj_id)
+            if team_id:
+                proj = project_service.get_project(db_session, proj_id)
+                if proj:
+                    proj.ms_teams_group_id = team_id
+                    db_session.commit()
 
-        background_tasks.add_task(
-            background_teams_worker,
-            proj_name  = db_project.project_name,
-            emails     = member_emails,
-            proj_id    = db_project.id,
-        )
+    background_tasks.add_task(
+        background_teams_worker,
+        proj_name  = db_project.project_name,
+        emails     = member_emails,
+        proj_id    = db_project.id,
+    )
 
-        return db_project
-    except Exception as e:
-        import traceback
-        err = traceback.format_exc()
-        with open("error_log.txt", "w") as f:
-            f.write(err)
-        raise HTTPException(status_code=500, detail=str(e))
+    return db_project
+
+
+@router.get("/check-sync-id")
+def check_sync_id(
+    id: str = Query(..., min_length=1),
+    exclude_project_id: Optional[int] = Query(None),
+    db: Session = Depends(get_sync_db),
+):
+    from sqlalchemy import select
+    from app.models.project import Project
+    
+    stmt = select(Project.id).where(Project.project_id_sync == id)
+    if exclude_project_id:
+        stmt = stmt.where(Project.id != exclude_project_id)
+        
+    exists = db.execute(stmt).scalar_one_or_none() is not None
+    return {"exists": exists}
+
+
+@router.get("/check-name")
+def check_name(
+    name: str = Query(..., min_length=1),
+    exclude_project_id: Optional[int] = Query(None),
+    db: Session = Depends(get_sync_db),
+):
+    from sqlalchemy import select
+    from app.models.project import Project
+    
+    stmt = select(Project.id).where(Project.project_name == name)
+    if exclude_project_id:
+        stmt = stmt.where(Project.id != exclude_project_id)
+        
+    exists = db.execute(stmt).scalar_one_or_none() is not None
+    return {"exists": exists}
 
 
 @router.get("/search", response_model=List[ProjectResponse])

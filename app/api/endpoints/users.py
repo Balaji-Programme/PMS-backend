@@ -35,12 +35,7 @@ def create_user(
         raise HTTPException(status_code=400, detail="Email already registered")
     if user.username and user_service.get_user_by_username(db, username=user.username):
         raise HTTPException(status_code=400, detail="Username already registered")
-    try:
-        return user_service.create_user(db=db, user=user, actor_id=current_user.o365_id or str(current_user.id))
-    except Exception as e:
-        if "Duplicate entry" in str(e) and "employee_id" in str(e):
-            raise HTTPException(status_code=400, detail="Employee ID already exists")
-        raise HTTPException(status_code=400, detail="Failed to create user. Data might violate constraints.")
+    return user_service.create_user(db=db, user=user, actor_id=current_user.o365_id or str(current_user.id))
 
 @router.get("/", response_model=UserListResponse)
 def read_users(

@@ -7,6 +7,9 @@ from datetime import datetime
 
 logger = logging.getLogger("app.exceptions")
 
+from sqlalchemy.exc import IntegrityError
+import re
+
 def add_exception_handlers(app: FastAPI):
     @app.exception_handler(SQLAlchemyError)
     def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
@@ -15,6 +18,24 @@ def add_exception_handlers(app: FastAPI):
             "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
             "Access-Control-Allow-Credentials": "true",
         }
+
+        if isinstance(exc, IntegrityError):
+            msg = str(exc.orig)
+            if "Duplicate entry" in msg:
+                match = re.search(r"Duplicate entry '(.+?)' for key", msg)
+                if match:
+                    dup_val = match.group(1)
+                    return JSONResponse(
+                        status_code=400,
+                        content={"detail": f"The value '{dup_val}' already exists and must be unique."},
+                        headers=headers
+                    )
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "A record with this unique value already exists."},
+                headers=headers
+            )
+
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal Database Error", "type": str(type(exc).__name__)},

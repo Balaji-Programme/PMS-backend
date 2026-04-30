@@ -59,20 +59,15 @@ def read_timelogs(
     current_user=Depends(allow_authenticated),
     db: Session = Depends(get_sync_db),
 ):
-    try:
-        return timelog_service.get_timelogs(
-            db,
-            skip=skip,
-            limit=limit,
-            project_id=project_id,
-            task_id=task_id,
-            issue_id=issue_id,
-            current_user=current_user if is_employee_only(current_user) else None,
-        )
-    except Exception as e:
-        import traceback
-        print(f"[TIMELOG ERROR] {str(e)}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Timelog error: {str(e)}")
+    return timelog_service.get_timelogs(
+        db,
+        skip=skip,
+        limit=limit,
+        project_id=project_id,
+        task_id=task_id,
+        issue_id=issue_id,
+        current_user=current_user if is_employee_only(current_user) else None,
+    )
 
 
 @router.get("/{timelog_id}", response_model=TimeLogResponse)
