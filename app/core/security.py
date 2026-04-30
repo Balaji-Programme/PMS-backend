@@ -70,10 +70,10 @@ def get_current_user(
         if not user_id_s:
             raise ValueError("No sub in payload")
         user_id = int(user_id_s)
-    except (JWTError, ValueError, TypeError) as exc:
+    except (JWTError, ValueError, TypeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired token: {exc}",
+            detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

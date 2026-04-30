@@ -83,13 +83,12 @@ def update_milestone(
         raise HTTPException(status_code=404, detail="Milestone not found")
     return updated
 
-@router.delete("/{milestone_id}")
+@router.delete("/{milestone_id}", status_code=204)
 def delete_milestone(
     milestone_id: int,
     db: Session = Depends(get_sync_db),
     current_user=Depends(allow_team_lead_plus),
 ):
-
     success = milestone_service.delete_milestone(
         db,
         milestone_id=milestone_id,
@@ -97,4 +96,3 @@ def delete_milestone(
     )
     if not success:
         raise HTTPException(status_code=404, detail="Milestone not found")
-    return {"message": "Milestone deleted successfully"}

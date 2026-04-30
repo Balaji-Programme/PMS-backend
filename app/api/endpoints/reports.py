@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
@@ -54,7 +54,7 @@ def get_project_report(project_id: int, db: Session = Depends(get_sync_db)):
 
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
-        return {"error": "Project not found"}
+        raise HTTPException(status_code=404, detail="Project not found")
 
     task_rows = (
         db.query(MasterLookup.label, func.count(Task.id))

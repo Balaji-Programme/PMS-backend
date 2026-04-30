@@ -95,9 +95,8 @@ def update_document(document_id: int, document: DocumentUpdate, db: Session = De
         raise HTTPException(status_code=404, detail="Document not found")
     return db_document
 
-@router.delete("/{document_id}", dependencies=[Depends(allow_authenticated)])
+@router.delete("/{document_id}", status_code=204, dependencies=[Depends(allow_authenticated)])
 def delete_document(document_id: int, db: Session = Depends(get_sync_db), current_user = Depends(allow_authenticated)):
     success = document_service.delete_document(db, document_id=document_id, actor_id=current_user.o365_id or str(current_user.id))
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
-    return {"message": "Document deleted successfully"}
