@@ -171,6 +171,18 @@ def create_project(
 ) -> Project:
     public_id = get_next_project_id(db, Project)
 
+    pm_id = project.project_manager_id
+    if project.project_manager_email:
+        pm_user = db.execute(select(User).where(User.email == project.project_manager_email)).scalar_one_or_none()
+        if pm_user:
+            pm_id = pm_user.id
+
+    dh_id = project.delivery_head_id
+    if project.delivery_head_email:
+        dh_user = db.execute(select(User).where(User.email == project.delivery_head_email)).scalar_one_or_none()
+        if dh_user:
+            dh_id = dh_user.id
+
     db_project = Project(
         public_id               = public_id,
         project_name            = project.project_name,
@@ -183,8 +195,8 @@ def create_project(
         billing_model           = project.billing_model,
         project_type            = project.project_type,
         project_status_external = project.project_status_external,
-        project_manager_id      = project.project_manager_id,
-        delivery_head_id        = project.delivery_head_id,
+        project_manager_id      = pm_id,
+        delivery_head_id        = dh_id,
         owner_id                = project.owner_id,
         template_id             = project.template_id,
         status_id               = project.status_id,
@@ -260,7 +272,7 @@ def update_project(
 
     update_data = project_update.model_dump(
         exclude_unset=True,
-        exclude={"user_emails", "project_manager_email"},
+        exclude={"user_emails", "project_manager_email", "delivery_head_email"},
     )
 
     if project_update.project_manager_email:
@@ -269,6 +281,13 @@ def update_project(
         ).scalar_one_or_none()
         if pm_user:
             update_data["project_manager_id"] = pm_user.id
+
+    if project_update.delivery_head_email:
+        dh_user = db.execute(
+            select(User).where(User.email == project_update.delivery_head_email)
+        ).scalar_one_or_none()
+        if dh_user:
+            update_data["delivery_head_id"] = dh_user.id
 
     if "status_id" in update_data and update_data["status_id"] != db_project.status_id:
         update_data["previous_status_id"] = db_project.status_id

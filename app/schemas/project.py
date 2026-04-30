@@ -82,6 +82,7 @@ class ProjectCreate(BaseModel):
     project_manager_id: Optional[int]       = None
     project_manager_email: Optional[str]    = None
     delivery_head_id: Optional[int]         = None
+    delivery_head_email: Optional[str]      = None
     template_id: Optional[int]              = None
 
     status_id: Optional[int]                = None
@@ -121,6 +122,7 @@ class ProjectUpdate(BaseModel):
     project_manager_id: Optional[int]       = None
     project_manager_email: Optional[str]    = None
     delivery_head_id: Optional[int]         = None
+    delivery_head_email: Optional[str]      = None
 
     status_id: Optional[int]                = None
     priority_id: Optional[int]              = None
