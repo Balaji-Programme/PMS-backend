@@ -69,7 +69,7 @@ class Project(AuditMixin, Base):
     public_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
 
     account_name: Mapped[str]  = mapped_column(String(255))
-    project_name: Mapped[str]  = mapped_column(String(255), index=True)
+    project_name: Mapped[str]  = mapped_column(String(255), unique=True, index=True)
     customer_name: Mapped[str] = mapped_column(String(255))
     client_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     

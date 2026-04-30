@@ -94,6 +94,23 @@ def check_sync_id(
     return {"exists": exists}
 
 
+@router.get("/check-name")
+def check_name(
+    name: str = Query(..., min_length=1),
+    exclude_project_id: Optional[int] = Query(None),
+    db: Session = Depends(get_sync_db),
+):
+    from sqlalchemy import select
+    from app.models.project import Project
+    
+    stmt = select(Project.id).where(Project.project_name == name)
+    if exclude_project_id:
+        stmt = stmt.where(Project.id != exclude_project_id)
+        
+    exists = db.execute(stmt).scalar_one_or_none() is not None
+    return {"exists": exists}
+
+
 @router.get("/search", response_model=List[ProjectResponse])
 def search_projects(
     q: str = Query(..., min_length=1),
