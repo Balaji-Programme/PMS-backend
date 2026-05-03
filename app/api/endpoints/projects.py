@@ -22,8 +22,8 @@ from app.schemas.project import (
     ProjectMemberResponse,
     ProjectSyncUpdate,
 )
-from app.schemas.task import TaskResponse
-from app.schemas.issue import IssueResponse
+from app.schemas.task import TaskResponse, TaskListResponse
+from app.schemas.issue import IssueResponse, IssueListResponse
 from app.schemas.timelog import TimeLogResponse
 from app.schemas.milestone import MilestoneResponse
 from app.schemas.audit import AuditLogResponse
@@ -370,7 +370,7 @@ def get_project_dashboard(
     }
 
 
-@router.get("/{project_id}/tasks", response_model=List[TaskResponse])
+@router.get("/{project_id}/tasks", response_model=TaskListResponse)
 def get_project_tasks(
     project_id: int,
     skip: int = 0,
@@ -382,7 +382,7 @@ def get_project_tasks(
     return task_service.get_tasks(db, project_id=project_id, skip=skip, limit=limit)
 
 
-@router.get("/{project_id}/issues", response_model=List[IssueResponse])
+@router.get("/{project_id}/issues", response_model=IssueListResponse)
 def get_project_issues(
     project_id: int,
     skip: int = 0,
