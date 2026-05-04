@@ -94,6 +94,7 @@ class IssueResponse(BaseModel):
     project: Optional[ProjectMin] = None
 
     milestone_id: Optional[int] = None
+    milestone: Optional[dict] = None
     associated_team_id: Optional[int]
     assignee_id: Optional[int]
     reporter_id: Optional[int]
