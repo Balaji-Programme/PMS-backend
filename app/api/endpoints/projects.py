@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Optional
+import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -83,15 +84,19 @@ def check_sync_id(
     exclude_project_id: Optional[int] = Query(None),
     db: Session = Depends(get_sync_db),
 ):
-    from sqlalchemy import select
-    from app.models.project import Project
-    
-    stmt = select(Project.id).where(Project.project_id_sync == id)
-    if exclude_project_id:
-        stmt = stmt.where(Project.id != exclude_project_id)
-        
-    exists = db.execute(stmt).scalar_one_or_none() is not None
-    return {"exists": exists}
+    try:
+        from sqlalchemy import select
+        from app.models.project import Project
+
+        stmt = select(Project.id).where(Project.project_id_sync == id)
+        if exclude_project_id:
+            stmt = stmt.where(Project.id != exclude_project_id)
+
+        exists = db.execute(stmt).scalar_one_or_none() is not None
+        return {"exists": exists}
+    except Exception:
+        logging.getLogger("app.projects").exception("check-sync-id failed for id=%s", id)
+        raise HTTPException(status_code=503, detail="Unable to check sync ID availability. Please try again.")
 
 
 @router.get("/check-name")
@@ -100,15 +105,19 @@ def check_name(
     exclude_project_id: Optional[int] = Query(None),
     db: Session = Depends(get_sync_db),
 ):
-    from sqlalchemy import select
-    from app.models.project import Project
-    
-    stmt = select(Project.id).where(Project.project_name == name)
-    if exclude_project_id:
-        stmt = stmt.where(Project.id != exclude_project_id)
-        
-    exists = db.execute(stmt).scalar_one_or_none() is not None
-    return {"exists": exists}
+    try:
+        from sqlalchemy import select
+        from app.models.project import Project
+
+        stmt = select(Project.id).where(Project.project_name == name)
+        if exclude_project_id:
+            stmt = stmt.where(Project.id != exclude_project_id)
+
+        exists = db.execute(stmt).scalar_one_or_none() is not None
+        return {"exists": exists}
+    except Exception:
+        logging.getLogger("app.projects").exception("check-name failed for name=%s", name)
+        raise HTTPException(status_code=503, detail="Unable to check name availability. Please try again.")
 
 
 @router.get("/search", response_model=List[ProjectResponse])

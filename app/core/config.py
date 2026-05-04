@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     MYSQL_USER: str = Field(alias="DB_USER")
     MYSQL_PASSWORD: str = Field(alias="DB_PASSWORD")
-    MYSQL_SERVER: str = Field(alias="DB_SERVER", default="localhost")
+    MYSQL_SERVER: str = Field(alias="DB_SERVER", default="")
     MYSQL_PORT: str = Field(alias="DB_PORT", default="3306")
     MYSQL_DB: str = Field(alias="DB_NAME")
 
