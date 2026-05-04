@@ -11,7 +11,10 @@ from app.schemas.task_list import TaskListCreate, TaskListUpdate
 from app.utils.audit_utils import capture_audit_details, write_audit
 
 def _tl_query():
-    return select(TaskList).options(selectinload(TaskList.project))
+    return select(TaskList).options(
+        selectinload(TaskList.project),
+        selectinload(TaskList.milestone),
+    )
 
 def get_task_list(db: Session, task_list_id: int) -> Optional[TaskList]:
     result = db.execute(_tl_query().where(TaskList.id == task_list_id))
@@ -35,9 +38,10 @@ def create_task_list(
     actor_id: Optional[str] = None,
 ) -> TaskList:
     db_tl = TaskList(
-        name        = task_list.name,
-        description = task_list.description,
-        project_id  = task_list.project_id,
+        name         = task_list.name,
+        description  = task_list.description,
+        project_id   = task_list.project_id,
+        milestone_id = task_list.milestone_id,
     )
     db.add(db_tl)
     db.flush()
@@ -63,8 +67,16 @@ def update_task_list(
 
     update_data = task_list_update.model_dump(exclude_unset=True)
     changes = capture_audit_details(db_tl, update_data)
+    
+    milestone_changed = "milestone_id" in update_data and update_data["milestone_id"] != db_tl.milestone_id
+
     for k, v in update_data.items():
         setattr(db_tl, k, v)
+
+    if milestone_changed:
+        from app.models.task import Task
+        from sqlalchemy import update
+        db.execute(update(Task).where(Task.task_list_id == task_list_id).values(milestone_id=db_tl.milestone_id))
 
     write_audit(db, actor_id, "UPDATE", "task_lists", db_tl.project_id or task_list_id, task_list_id, changes)
     db.commit()

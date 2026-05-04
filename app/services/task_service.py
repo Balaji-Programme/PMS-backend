@@ -102,6 +102,12 @@ def create_task(
     project_name = project.project_name if project else ""
     public_id = get_next_sequence_id(db, Task, project_name, task.project_id, "T") if task.project_id else generate_public_id("TSK-")
 
+    if task.task_list_id and not task.milestone_id:
+        from app.models.task_list import TaskList
+        tl = db.execute(select(TaskList).where(TaskList.id == task.task_list_id)).scalar_one_or_none()
+        if tl and tl.milestone_id:
+            task.milestone_id = tl.milestone_id
+
     db_task = Task(
         public_id             = public_id,
         task_name             = task.task_name,
@@ -164,6 +170,12 @@ def update_task(
         exclude_unset=True,
         exclude={"owner_emails", "assignee_emails"},
     )
+
+    if "task_list_id" in update_data and update_data["task_list_id"]:
+        from app.models.task_list import TaskList
+        tl = db.execute(select(TaskList).where(TaskList.id == update_data["task_list_id"])).scalar_one_or_none()
+        if tl and tl.milestone_id:
+            update_data["milestone_id"] = tl.milestone_id
 
     if "status_id" in update_data and update_data["status_id"] != db_task.status_id:
         update_data["previous_status_id"] = db_task.status_id

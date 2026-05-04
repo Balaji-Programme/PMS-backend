@@ -70,3 +70,4 @@ class Milestone(AuditMixin, Base):
 
     project = relationship("Project", back_populates="milestones", lazy="selectin")
     owner   = relationship("User", foreign_keys=[owner_id], lazy="selectin")
+    task_lists = relationship("TaskList", back_populates="milestone", cascade="all, delete-orphan", lazy="selectin")

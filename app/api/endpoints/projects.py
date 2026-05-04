@@ -92,7 +92,7 @@ def check_sync_id(
         if exclude_project_id:
             stmt = stmt.where(Project.id != exclude_project_id)
 
-        exists = db.execute(stmt).scalar_one_or_none() is not None
+        exists = db.execute(stmt).first() is not None
         return {"exists": exists}
     except Exception:
         logging.getLogger("app.projects").exception("check-sync-id failed for id=%s", id)
@@ -113,7 +113,7 @@ def check_name(
         if exclude_project_id:
             stmt = stmt.where(Project.id != exclude_project_id)
 
-        exists = db.execute(stmt).scalar_one_or_none() is not None
+        exists = db.execute(stmt).first() is not None
         return {"exists": exists}
     except Exception:
         logging.getLogger("app.projects").exception("check-name failed for name=%s", name)
