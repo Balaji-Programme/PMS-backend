@@ -221,31 +221,29 @@ def create_project(
         clone_from_template(db, db_project.id, project.template_id)
 
 
+    members_to_add = {}
+
     if project.user_emails:
         users_result = db.execute(select(User).where(User.email.in_(project.user_emails)))
         for u in users_result.scalars().all():
-            db.add(ProjectMember(
-                project_id      = db_project.id,
-                user_id         = u.id,
-                project_profile = "Member",
-                portal_profile  = "User",
-            ))
-
+            members_to_add[u.id] = {"project_profile": "Member", "portal_profile": "User"}
 
     if project.owner_id:
-        existing = db.execute(
-            select(ProjectMember).where(
-                ProjectMember.project_id == db_project.id,
-                ProjectMember.user_id == project.owner_id,
-            )
-        ).scalar_one_or_none()
-        if not existing:
-            db.add(ProjectMember(
-                project_id      = db_project.id,
-                user_id         = project.owner_id,
-                project_profile = "Project Lead",
-                portal_profile  = "Administrator",
-            ))
+        members_to_add[project.owner_id] = {"project_profile": "Project Lead", "portal_profile": "Administrator"}
+
+    if pm_id:
+        members_to_add[pm_id] = {"project_profile": "Project Manager", "portal_profile": "Administrator"}
+        
+    if dh_id:
+        members_to_add[dh_id] = {"project_profile": "Delivery Head", "portal_profile": "Administrator"}
+
+    for uid, profs in members_to_add.items():
+        db.add(ProjectMember(
+            project_id=db_project.id,
+            user_id=uid,
+            project_profile=profs["project_profile"],
+            portal_profile=profs["portal_profile"],
+        ))
 
     write_audit(
         db, actor_id, "CREATE", "projects", db_project.id, db_project.id,

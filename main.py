@@ -11,6 +11,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.api.router import api_router
+import seed
 
 from app.utils.exceptions import add_exception_handlers
 from app.models.masters import UserStatus, Skill, Status, Priority
@@ -38,8 +39,13 @@ IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if not IS_PRODUCTION:
-        Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    
+    try:
+        seed.seed_all(reset=False)
+    except Exception as e:
+        print(f"Auto-seeding failed: {e}")
+        
     yield
     engine.dispose()
 
