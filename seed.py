@@ -32,6 +32,8 @@ _UNIFIED_STATUS_DEFS = {
 
 _UNIFIED_PRIORITIES = {
     "Critical":     {"label": "Critical",     "color": "#7f1d1d", "icon": "pi-bolt"},
+    "Blocker":      {"label": "Blocker",      "color": "#b91c1c", "icon": "pi-ban"},
+    "Show Stopper": {"label": "Show Stopper", "color": "#7f1d1d", "icon": "pi-exclamation-triangle"},
     "High":         {"label": "High",         "color": "#ef4444", "icon": "pi-arrow-up"},
     "Medium":       {"label": "Medium",       "color": "#f59e0b", "icon": "pi-minus"},
     "Low":          {"label": "Low",          "color": "#22c55e", "icon": "pi-arrow-down"},
@@ -53,7 +55,7 @@ _MAPPINGS = {
     "IssueStatus":         ["Open", "In Progress", "In Review", "To Be Tested", "Closed", "Re-Opened"],
     "ProjectStatus":       ["Active", "On Hold", "Completed", "Cancelled"],
     "TaskPriority":        ["Critical", "High", "Medium", "Low"],
-    "IssueSeverity":       ["Critical", "High", "Medium", "Low"],
+    "IssueSeverity":       ["Blocker", "Show Stopper", "Critical", "High", "Medium", "Low"],
     "ProjectBillingModel": ["Fixed Bid", "Time & Materials", "Internal", "Retainer"],
     "ProjectType":         ["Client Project", "Internal Project", "Research", "Support"],
 }

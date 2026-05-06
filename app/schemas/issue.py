@@ -37,6 +37,8 @@ class IssueCreate(BaseModel):
     start_date: Optional[date] = None
     due_date: Optional[date] = None
     estimated_hours: Optional[float] = None
+    
+    document_ids: Optional[List[int]] = Field(default_factory=list)
 
 
 class IssueUpdate(BaseModel):
@@ -73,6 +75,8 @@ class IssueUpdate(BaseModel):
 
     previous_status_id: Optional[int] = None
     is_processed: Optional[bool]      = None
+
+    document_ids: Optional[List[int]] = Field(default_factory=list)
 
 
 class ProjectMin(BaseModel):
