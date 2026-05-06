@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.user import UserBase
 from app.schemas.masters import MasterLookupResponse
+from app.schemas.document import DocumentResponse
 
 
 class IssueCreate(BaseModel):
@@ -139,6 +140,7 @@ class IssueResponse(BaseModel):
 
     followers: List[UserBase] = Field(default_factory=list)
     assignees: List[UserBase] = Field(default_factory=list)
+    documents: List[DocumentResponse] = Field(default_factory=list)
 
 
 class IssueListResponse(BaseModel):

@@ -13,14 +13,6 @@ from sqlalchemy.sql import func
 
 from app.core.database import Base, AuditMixin
 
-class BillingModel(str, Enum):
-    TM = "T&M"
-    FIXED = "FixedMonthly"
-    MILESTONE = "Milestone"
-
-class ProjectType(str, Enum):
-    INTERNAL = "internal"
-    EXTERNAL = "external"
 
 class ProjectMember(Base):
     __tablename__ = "project_members"
@@ -73,8 +65,8 @@ class Project(AuditMixin, Base):
     customer_name: Mapped[str] = mapped_column(String(255))
     client_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     
-    billing_model: Mapped[BillingModel]   = mapped_column(SAEnum(BillingModel), nullable=False)
-    project_type: Mapped[ProjectType]     = mapped_column(SAEnum(ProjectType), nullable=False)
+    billing_model: Mapped[str]            = mapped_column(String(100), nullable=False)
+    project_type: Mapped[str]             = mapped_column(String(100), nullable=False)
     project_status_external: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     
     expected_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
