@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.user import UserBase
 from app.schemas.masters import MasterResponse, MasterLookupResponse
+from app.schemas.document import DocumentResponse
 
 
 
@@ -211,7 +212,7 @@ class ProjectResponse(BaseModel):
 
 
     team_members: List[ProjectMemberResponse] = Field(default_factory=list)
-
+    documents: List[DocumentResponse]         = Field(default_factory=list)
 
     task_count: int      = 0
     issue_count: int     = 0
