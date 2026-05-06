@@ -15,6 +15,7 @@ from app.core.database import engine, Base, ensure_database_exists
 from app.api.router import api_router
 from app.core.seeding import seed_all
 from app.utils.exceptions import add_exception_handlers
+
 from app.models.masters import UserStatus, Skill, Status, Priority
 from app.models.roles import Role
 from app.models.user import User, user_team_link
@@ -83,18 +84,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=[
-        "Authorization",
-        "Content-Type",
-        "Accept",
-        "Origin",
-        "X-Requested-With",
-        "ConsistencyLevel",
-        "X-Forwarded-For",
-        "X-Forwarded-Proto",
-    ],
-    expose_headers=["Content-Disposition"],
+    allow_methods=settings.CORS_ALLOW_METHODS,
+    allow_headers=settings.CORS_ALLOW_HEADERS,
+    expose_headers=settings.CORS_EXPOSE_HEADERS,
     max_age=600,
 )
 
@@ -119,12 +111,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():
-
-    return {
-        "message": f"Welcome to {settings.PROJECT_NAME}",
-        "status": "online"
-    }
-
+    return {"message": f"Welcome to {settings.PROJECT_NAME}", "status": "online"}
 
 if __name__ == "__main__":
     uvicorn.run(

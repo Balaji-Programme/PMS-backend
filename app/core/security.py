@@ -16,10 +16,11 @@ from app.core.database import get_sync_db
 pwd_context    = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _bearer_scheme = HTTPBearer(auto_error=False)
 
-ROLE_SUPER_ADMIN     = "Super Admin"
-ROLE_ADMIN           = "Admin"
-ROLE_TEAM_LEAD       = "Team Lead"
-ROLE_EMPLOYEE        = "Employee"
+# Replaced hardcoded strings with settings
+ROLE_SUPER_ADMIN     = settings.ROLE_SUPER_ADMIN
+ROLE_ADMIN           = settings.ROLE_ADMIN
+ROLE_TEAM_LEAD       = settings.ROLE_TEAM_LEAD
+ROLE_EMPLOYEE        = settings.ROLE_EMPLOYEE
 
 FULL_ACCESS_ROLES     = [ROLE_SUPER_ADMIN, ROLE_ADMIN]
 TEAM_LEAD_PLUS_ROLES  = [ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_TEAM_LEAD]
@@ -221,5 +222,6 @@ class ProjectRoleChecker:
             detail=f"Requires project-specific role: {', '.join(self.allowed_roles)}",
         )
 
-allow_project_lead   = ProjectRoleChecker(["Project Lead"])
-allow_project_member = ProjectRoleChecker(["Project Lead", "Developer", "Member"])
+# Use settings for profiles
+allow_project_lead   = ProjectRoleChecker([settings.PROFILE_PROJECT_LEAD])
+allow_project_member = ProjectRoleChecker([settings.PROFILE_PROJECT_LEAD, settings.PROFILE_DEVELOPER, settings.PROFILE_MEMBER])

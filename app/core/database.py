@@ -14,7 +14,7 @@ from app.core.config import settings
 logger = getLogger("app.database")
 
 connect_args: dict = {}
-if "azure" in settings.MYSQL_SERVER:
+if "azure" in settings.DB_SERVER:
     connect_args = {"ssl": {"check_hostname": False}}
 
 engine = create_engine(
@@ -25,7 +25,7 @@ engine = create_engine(
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_recycle=settings.DB_POOL_RECYCLE,
     pool_timeout=settings.DB_POOL_TIMEOUT,
-    echo=False,
+    echo=settings.DB_ECHO,
 )
 
 SessionLocal = sessionmaker(
@@ -58,15 +58,14 @@ class AuditMixin:
 
 def ensure_database_exists():
     try:
-        encoded_password = quote_plus(settings.MYSQL_PASSWORD)
-        server_url = f"mysql+pymysql://{settings.MYSQL_USER}:{encoded_password}@{settings.MYSQL_SERVER}:{settings.MYSQL_PORT}/"
+        encoded_password = quote_plus(settings.DB_PASSWORD)
+        server_url = f"mysql+pymysql://{settings.DB_USER}:{encoded_password}@{settings.DB_SERVER}:{settings.DB_PORT}/"
         
         temp_engine = create_engine(server_url, connect_args=connect_args)
         with temp_engine.connect() as conn:
-
-            conn.execute(text(f"CREATE DATABASE IF NOT EXISTS {settings.MYSQL_DB}"))
+            conn.execute(text(f"CREATE DATABASE IF NOT EXISTS {settings.DB_NAME}"))
         temp_engine.dispose()
-        logger.info(f"Ensured database '{settings.MYSQL_DB}' exists.")
+        logger.info(f"Ensured database '{settings.DB_NAME}' exists.")
     except Exception as e:
         logger.error(f"Failed to ensure database exists: {e}")
         pass

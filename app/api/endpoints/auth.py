@@ -66,7 +66,7 @@ def ms_callback(payload: MSCallbackRequest, db: Session = Depends(get_sync_db)):
                     "redirect_uri":  payload.redirect_uri,
                     "client_id":     settings.AZURE_CLIENT_ID,
                     "client_secret": settings.AZURE_CLIENT_SECRET,
-                    "scope":         "openid profile email User.Read",
+                    "scope":         settings.MS_AUTH_SCOPES,
                 },
                 timeout=15.0,
             )
