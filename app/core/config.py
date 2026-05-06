@@ -6,6 +6,13 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "TechnoRUCS PMS"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
+    ENVIRONMENT: str = Field(default="development")
+    UPLOAD_DIR: str = Field(default="uploads")
+    DEFAULT_LANGUAGE: str = Field(default="English")
+    
+    AUTO_SEED: bool = Field(default=True)
+    ENABLE_DB_CREATE: bool = Field(default=True)
+    LOG_LEVEL: str = Field(default="INFO")
 
     MYSQL_USER: str = Field(alias="DB_USER")
     MYSQL_PASSWORD: str = Field(alias="DB_PASSWORD")

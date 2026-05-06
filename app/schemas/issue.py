@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.user import UserBase
 from app.schemas.masters import MasterLookupResponse
 from app.schemas.document import DocumentResponse
+from app.schemas.base import BaseSchema
 
 
 class IssueCreate(BaseModel):
@@ -87,7 +88,7 @@ class ProjectMin(BaseModel):
     customer_name: Optional[str] = None
     account_name: Optional[str] = None
 
-class IssueResponse(BaseModel):
+class IssueResponse(BaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
     id: int

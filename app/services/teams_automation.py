@@ -50,7 +50,7 @@ def create_ms_team_for_project(
                 json={
                     "template@odata.bind": f"{settings.MS_GRAPH_BASE_URL}/v1.0/teamsTemplates('standard')",
                     "displayName":         project_name[:256],
-                    "description":         f"TechnoRUCS PMS — {project_name} (Project ID: {project_id})",
+                    "description":         f"{settings.PROJECT_NAME} — {project_name} (Project ID: {project_id})",
                     "memberSettings": {"allowCreateUpdateChannels": True},
                     "messagingSettings": {"allowUserEditMessages": True, "allowUserDeleteMessages": True},
                     "funSettings": {"allowGiphy": False},

@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Table, Date, Boolean, UniqueConstraint, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
+from app.core.config import settings
 from app.core.database import Base, AuditMixin
 
 user_team_link = Table(
@@ -9,8 +11,8 @@ user_team_link = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
     Column("team_id", Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False),
-    Column("created_at", DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False),
-    Column("updated_at", DateTime(timezone=True), default=None, onupdate=func.now(), nullable=True),
+    Column("created_at", DateTime(timezone=False), default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), server_default=func.utc_timestamp(), nullable=False),
+    Column("updated_at", DateTime(timezone=False), default=None, onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=True),
     Column("is_active", Boolean, default=True, nullable=False),
     Column("is_deleted", Boolean, default=False, nullable=False),
 )
@@ -20,8 +22,8 @@ user_skill_link = Table(
     Base.metadata,
     Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
     Column("skill_id", Integer, ForeignKey("skills.id", ondelete="CASCADE"), primary_key=True),
-    Column("created_at", DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False),
-    Column("updated_at", DateTime(timezone=True), default=None, onupdate=func.now(), nullable=True),
+    Column("created_at", DateTime(timezone=False), default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), server_default=func.utc_timestamp(), nullable=False),
+    Column("updated_at", DateTime(timezone=False), default=None, onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=True),
     Column("is_active", Boolean, default=True, nullable=False),
     Column("is_deleted", Boolean, default=False, nullable=False)
 )
@@ -47,8 +49,8 @@ class User(AuditMixin, Base):
     gender = Column(String(20), nullable=True)
     country = Column(String(100), nullable=True)
     state = Column(String(100), nullable=True)
-    language = Column(String(50), default="English", nullable=True)
-    timezone = Column(String(100), default="Asia/Kolkata", nullable=True)
+    language = Column(String(50), default=settings.DEFAULT_LANGUAGE, nullable=True)
+    timezone = Column(String(100), default=None, nullable=True)
 
     o365_id = Column(String(255), unique=True, index=True, nullable=True)
     is_synced = Column(Boolean, default=False)

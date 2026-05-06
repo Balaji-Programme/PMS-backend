@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String, UniqueConstraint
 from app.core.database import Base, AuditMixin
 
 class MasterLookup(AuditMixin, Base):
@@ -15,3 +15,7 @@ class MasterLookup(AuditMixin, Base):
     icon = Column(String(50), nullable=True)
     order_index = Column(Integer, default=0, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('category', 'value', name='uq_master_lookup_category_value'),
+    )

@@ -14,8 +14,21 @@ router = APIRouter(dependencies=[Depends(allow_authenticated)])
 def read_master_lookups(category: str, db: Session = Depends(get_sync_db)):
     from app.models.master import MasterLookup
     from sqlalchemy import select
-    result = db.execute(select(MasterLookup).where(MasterLookup.category == category, MasterLookup.is_active == True).order_by(MasterLookup.order_index))
-    return result.scalars().all()
+    result = db.execute(
+        select(MasterLookup)
+        .where(MasterLookup.category == category, MasterLookup.is_active == True)
+        .order_by(MasterLookup.order_index, MasterLookup.id)
+    )
+    items = result.scalars().all()
+    
+    seen = set()
+    unique_items = []
+    for item in items:
+        clean_label = item.label.strip().lower()
+        if clean_label not in seen:
+            unique_items.append(item)
+            seen.add(clean_label)
+    return unique_items
 
 @router.get("/lookups/{category}/search", response_model=List[MasterLookupResponse])
 def search_master_lookups(category: str, q: str = Query(..., min_length=1), limit: int = 20, db: Session = Depends(get_sync_db)):

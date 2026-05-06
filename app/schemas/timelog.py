@@ -41,6 +41,10 @@ class TimeLogUpdate(BaseModel):
     billing_type: Optional[str]     = None
     approval_status_id: Optional[int]  = None
 
+    project_id: Optional[int] = None
+    task_id: Optional[int]    = None
+    issue_id: Optional[int]   = None
+
     previous_approval_status_id: Optional[int] = None
     is_processed: Optional[bool]            = None
 
@@ -55,6 +59,12 @@ class TimeLogTaskSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     task_name: str
+    public_id: Optional[str] = None
+
+class TimeLogIssueSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    bug_name: str
     public_id: Optional[str] = None
 
 class TimeLogResponse(BaseModel):
@@ -93,6 +103,7 @@ class TimeLogResponse(BaseModel):
     
     project: Optional[TimeLogProjectSchema] = None
     task: Optional[TimeLogTaskSchema]       = None
+    issue: Optional[TimeLogIssueSchema]     = None
 
 
 class TimeLogBulkCreate(BaseModel):

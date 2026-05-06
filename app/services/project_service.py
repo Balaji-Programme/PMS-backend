@@ -40,6 +40,17 @@ def _compute_counts(db: Session, project_id: int) -> dict:
     task_count = db.execute(
         select(func.count()).where(Task.project_id == project_id, Task.is_deleted == False)
     ).scalar() or 0
+    
+    avg_completion = db.execute(
+        select(func.avg(Task.completion_percentage)).where(
+            Task.project_id == project_id, Task.is_deleted == False
+        )
+    ).scalar() or 0
+    
+    completed_task_count = db.execute(
+        select(func.count()).where(Task.project_id == project_id, Task.is_deleted == False, Task.completion_percentage == 100)
+    ).scalar() or 0
+
     issue_count = db.execute(
         select(func.count()).where(Issue.project_id == project_id, Issue.is_deleted == False)
     ).scalar() or 0
@@ -50,6 +61,7 @@ def _compute_counts(db: Session, project_id: int) -> dict:
         "task_count": task_count,
         "issue_count": issue_count,
         "milestone_count": milestone_count,
+        "completion_percentage": round((completed_task_count / task_count) * 100) if task_count > 0 else 0
     }
 
 
@@ -64,9 +76,16 @@ def _batch_enrich_projects(db: Session, projects: List[Project]) -> None:
         return
     project_ids = [p.id for p in projects]
     
-    task_counts = dict(db.execute(
-        select(Task.project_id, func.count()).where(Task.project_id.in_(project_ids), Task.is_deleted == False).group_by(Task.project_id)
-    ).all())
+    task_stats = db.execute(
+        select(
+            Task.project_id, 
+            func.count(Task.id),
+            func.sum(func.case((Task.completion_percentage == 100, 1), else_=0))
+        ).where(Task.project_id.in_(project_ids), Task.is_deleted == False).group_by(Task.project_id)
+    ).all()
+    
+    task_counts = {row[0]: row[1] for row in task_stats}
+    task_pcts = {row[0]: round((float(row[2] or 0) / float(row[1] or 1)) * 100) for row in task_stats}
     
     issue_counts = dict(db.execute(
         select(Issue.project_id, func.count()).where(Issue.project_id.in_(project_ids), Issue.is_deleted == False).group_by(Issue.project_id)
@@ -81,6 +100,7 @@ def _batch_enrich_projects(db: Session, projects: List[Project]) -> None:
             "task_count": task_counts.get(p.id, 0),
             "issue_count": issue_counts.get(p.id, 0),
             "milestone_count": milestone_counts.get(p.id, 0),
+            "completion_percentage": task_pcts.get(p.id, 0),
         })
 
 
@@ -221,31 +241,29 @@ def create_project(
         clone_from_template(db, db_project.id, project.template_id)
 
 
+    members_to_add = {}
+
     if project.user_emails:
         users_result = db.execute(select(User).where(User.email.in_(project.user_emails)))
         for u in users_result.scalars().all():
-            db.add(ProjectMember(
-                project_id      = db_project.id,
-                user_id         = u.id,
-                project_profile = "Member",
-                portal_profile  = "User",
-            ))
-
+            members_to_add[u.id] = {"project_profile": "Member", "portal_profile": "User"}
 
     if project.owner_id:
-        existing = db.execute(
-            select(ProjectMember).where(
-                ProjectMember.project_id == db_project.id,
-                ProjectMember.user_id == project.owner_id,
-            )
-        ).scalar_one_or_none()
-        if not existing:
-            db.add(ProjectMember(
-                project_id      = db_project.id,
-                user_id         = project.owner_id,
-                project_profile = "Project Lead",
-                portal_profile  = "Administrator",
-            ))
+        members_to_add[project.owner_id] = {"project_profile": "Project Lead", "portal_profile": "Administrator"}
+
+    if pm_id:
+        members_to_add[pm_id] = {"project_profile": "Project Manager", "portal_profile": "Administrator"}
+        
+    if dh_id:
+        members_to_add[dh_id] = {"project_profile": "Delivery Head", "portal_profile": "Administrator"}
+
+    for uid, profs in members_to_add.items():
+        db.add(ProjectMember(
+            project_id=db_project.id,
+            user_id=uid,
+            project_profile=profs["project_profile"],
+            portal_profile=profs["portal_profile"],
+        ))
 
     write_audit(
         db, actor_id, "CREATE", "projects", db_project.id, db_project.id,
@@ -327,19 +345,42 @@ def update_project(
                 ))
 
 
-        owner_id = db_project.owner_id
         for m in existing_members:
-            if m.user_id not in new_user_ids and m.user_id != owner_id:
+            if m.user_id not in new_user_ids and m.user_id != db_project.owner_id:
                 db.delete(m)
+
+    roles_to_ensure = []
+    if db_project.owner_id:
+        roles_to_ensure.append({"uid": db_project.owner_id, "profile": "Project Lead", "portal": "Administrator", "is_owner": True})
+    if db_project.project_manager_id:
+        roles_to_ensure.append({"uid": db_project.project_manager_id, "profile": "Project Manager", "portal": "Administrator", "is_owner": False})
+    if db_project.delivery_head_id:
+        roles_to_ensure.append({"uid": db_project.delivery_head_id, "profile": "Delivery Head", "portal": "Administrator", "is_owner": False})
+
+    for r in roles_to_ensure:
+        existing = db.execute(
+            select(ProjectMember).where(ProjectMember.project_id == project_id, ProjectMember.user_id == r["uid"])
+        ).scalar_one_or_none()
+        
+        if not existing:
+            db.add(ProjectMember(
+                project_id      = project_id,
+                user_id         = r["uid"],
+                project_profile = r["profile"],
+                portal_profile  = r["portal"],
+                is_owner        = r["is_owner"],
+                is_processed    = False
+            ))
+        else:
+            if r["is_owner"]: 
+                existing.is_owner = True
+            if existing.project_profile == "Member" and r["profile"] != "Member":
+                existing.project_profile = r["profile"]
+                existing.portal_profile = r["portal"]
 
     write_audit(db, actor_id, "UPDATE", "projects", project_id, project_id, changes)
     db.commit()
     return get_project(db, project_id)
-
-
-
-
-
 
 
 def delete_project(
@@ -363,9 +404,6 @@ def delete_project(
 
 
 
-
-
-
 def archive_project(
     db: Session,
     project_id: int,
@@ -384,10 +422,6 @@ def archive_project(
     )
     db.commit()
     return get_project(db, project_id)
-
-
-
-
 
 
 def sync_project_fields(
@@ -409,10 +443,6 @@ def sync_project_fields(
     write_audit(db, actor_id or "sync", "UPDATE", "projects", project_id, project_id, changes)
     db.commit()
     return get_project(db, project_id)
-
-
-
-
 
 
 def add_project_member(

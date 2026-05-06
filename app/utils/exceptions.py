@@ -45,13 +45,9 @@ def add_exception_handlers(app: FastAPI):
 
     @app.exception_handler(Exception)
     def global_exception_handler(request: Request, exc: Exception):
-        logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
-        import traceback
-        err = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-        with open("error_log.txt", "a") as f:
-            f.write(f"\n[{datetime.now()}] GLOBAL ERROR on {request.method} {request.url.path}:\n" + err + "\n")
+        logger.exception("Unhandled exception on %s %s: %s", request.method, request.url.path, str(exc))
         
         return JSONResponse(
             status_code=500,
-            content={"detail": "An unexpected error occurred"}
+            content={"detail": "An unexpected error occurred. Please contact support if the issue persists."}
         )

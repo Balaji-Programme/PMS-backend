@@ -11,19 +11,59 @@ from app.models.roles import Role
 from app.models.user import User
 
 def get_user_statuses(db: Session) -> List[UserStatus]:
-    return (db.execute(select(UserStatus))).scalars().all()
+    items = (db.execute(select(UserStatus))).scalars().all()
+    seen = set()
+    unique = []
+    for item in items:
+        n = item.name.strip().lower()
+        if n not in seen:
+            unique.append(item)
+            seen.add(n)
+    return unique
 
 def get_statuses(db: Session) -> List[Status]:
-    return (db.execute(select(Status))).scalars().all()
+    items = (db.execute(select(Status))).scalars().all()
+    seen = set()
+    unique = []
+    for item in items:
+        n = item.name.strip().lower()
+        if n not in seen:
+            unique.append(item)
+            seen.add(n)
+    return unique
 
 def get_priorities(db: Session) -> List[Priority]:
-    return (db.execute(select(Priority))).scalars().all()
+    items = (db.execute(select(Priority))).scalars().all()
+    seen = set()
+    unique = []
+    for item in items:
+        n = item.name.strip().lower()
+        if n not in seen:
+            unique.append(item)
+            seen.add(n)
+    return unique
 
 def get_skills(db: Session) -> List[Skill]:
-    return (db.execute(select(Skill))).scalars().all()
+    items = (db.execute(select(Skill))).scalars().all()
+    seen = set()
+    unique = []
+    for item in items:
+        n = item.name.strip().lower()
+        if n not in seen:
+            unique.append(item)
+            seen.add(n)
+    return unique
 
 def get_roles(db: Session) -> List[Role]:
-    return (db.execute(select(Role))).scalars().all()
+    items = (db.execute(select(Role))).scalars().all()
+    seen = set()
+    unique = []
+    for item in items:
+        n = item.name.strip().lower()
+        if n not in seen:
+            unique.append(item)
+            seen.add(n)
+    return unique
 
 def get_role(db: Session, role_id: int) -> Optional[Role]:
     result = db.execute(

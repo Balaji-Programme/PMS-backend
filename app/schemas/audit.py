@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 import uuid
 from pydantic import BaseModel, Field, ConfigDict
+from .base import BaseSchema
 
 class AuditDetailCreate(BaseModel):
     field_name: str = Field(alias="FieldName")
@@ -22,7 +23,7 @@ class AuditLogCreate(BaseModel):
     action: int = Field(alias="Action")
     performed_by: uuid.UUID = Field(alias="PerformedBy")
 
-class AuditLogResponse(BaseModel):
+class AuditLogResponse(BaseSchema):
     id: int = Field(alias="ID")
     action_type: int = Field(alias="Action")
     resource_name: str = Field(alias="TableName")

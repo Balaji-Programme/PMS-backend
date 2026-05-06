@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.user import UserBase
 from app.schemas.masters import MasterLookupResponse
+from app.schemas.base import BaseSchema
 
 class TaskCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -84,7 +85,7 @@ class MilestoneMin(BaseModel):
     id: int
     milestone_name: str
 
-class TaskResponse(BaseModel):
+class TaskResponse(BaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
     id: int

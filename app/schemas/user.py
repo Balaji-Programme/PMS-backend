@@ -2,8 +2,10 @@ from pydantic import BaseModel, EmailStr, computed_field
 from typing import Optional, List
 from datetime import date
 from .masters import RoleResponse, MasterResponse, SkillResponse
+from .base import BaseSchema
+from app.core.config import settings
 
-class UserBase(BaseModel):
+class UserBase(BaseSchema):
     id: Optional[int] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -16,8 +18,8 @@ class UserBase(BaseModel):
     gender: Optional[str] = None
     country: Optional[str] = None
     state: Optional[str] = None
-    language: Optional[str] = "English"
-    timezone: Optional[str] = "Asia/Kolkata"
+    language: Optional[str] = settings.DEFAULT_LANGUAGE
+    timezone: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
