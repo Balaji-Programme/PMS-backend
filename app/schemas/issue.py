@@ -37,6 +37,8 @@ class IssueCreate(BaseModel):
     start_date: Optional[date] = None
     due_date: Optional[date] = None
     estimated_hours: Optional[float] = None
+    
+    document_ids: Optional[List[int]] = Field(default_factory=list)
 
 
 class IssueUpdate(BaseModel):
@@ -74,6 +76,8 @@ class IssueUpdate(BaseModel):
     previous_status_id: Optional[int] = None
     is_processed: Optional[bool]      = None
 
+    document_ids: Optional[List[int]] = Field(default_factory=list)
+
 
 class ProjectMin(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -94,6 +98,7 @@ class IssueResponse(BaseModel):
     project: Optional[ProjectMin] = None
 
     milestone_id: Optional[int] = None
+    milestone: Optional[dict] = None
     associated_team_id: Optional[int]
     assignee_id: Optional[int]
     reporter_id: Optional[int]

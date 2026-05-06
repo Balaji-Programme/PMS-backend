@@ -115,6 +115,11 @@ def create_issue(
         ).scalars().all()
         db_issue.assignees.extend(assignees)
 
+    if issue.document_ids:
+        from app.models.document import Document
+        docs = db.execute(select(Document).where(Document.id.in_(issue.document_ids))).scalars().all()
+        db_issue.documents.extend(docs)
+
     db.add(db_issue)
     db.flush()
 
@@ -140,7 +145,7 @@ def update_issue(
 
     update_data = issue_update.model_dump(
         exclude_unset=True,
-        exclude={"assignee_emails", "follower_emails"},
+        exclude={"assignee_emails", "follower_emails", "document_ids"},
     )
 
     if "status_id" in update_data and update_data["status_id"] != db_issue.status_id:
@@ -172,6 +177,11 @@ def update_issue(
             db.execute(select(User).where(User.email.in_(issue_update.follower_emails)))
         ).scalars().all()
         db_issue.followers = list(followers)
+
+    if issue_update.document_ids is not None:
+        from app.models.document import Document
+        docs = db.execute(select(Document).where(Document.id.in_(issue_update.document_ids))).scalars().all()
+        db_issue.documents = list(docs)
 
     db_issue.last_modified_time = datetime.now(timezone.utc)
 

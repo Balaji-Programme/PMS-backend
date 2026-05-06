@@ -74,6 +74,16 @@ class ProjectMin(BaseModel):
     customer_name: Optional[str] = None
     account_name: Optional[str] = None
 
+class TaskListMin(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+
+class MilestoneMin(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    milestone_name: str
+
 class TaskResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -86,7 +96,9 @@ class TaskResponse(BaseModel):
     project: Optional[ProjectMin] = None
 
     task_list_id: Optional[int]
+    task_list: Optional[TaskListMin] = None
     milestone_id: Optional[int] = None
+    milestone: Optional[MilestoneMin] = None
     associated_team_id: Optional[int]
 
     assignee_id: Optional[int]

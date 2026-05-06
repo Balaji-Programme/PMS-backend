@@ -6,7 +6,7 @@ class DocumentBase(BaseModel):
     title: str
     description: Optional[str] = None
     file_url: str
-    file_type: str = "url"
+    file_type: Optional[str] = "url"
     file_size: Optional[int] = 0
     project_id: int
 

@@ -108,6 +108,7 @@ class ProjectUpdate(BaseModel):
     account_name: Optional[str]       = None
     project_name: Optional[str]       = None
     customer_name: Optional[str]      = None
+    project_id_sync: Optional[str]    = None
     client_name: Optional[str]        = None
     tags: Optional[str]               = None
 
