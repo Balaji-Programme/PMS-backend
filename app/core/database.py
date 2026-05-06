@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Generator
 
-from sqlalchemy import Column, Boolean, DateTime, create_engine
+from sqlalchemy import Column, Boolean, DateTime, create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlalchemy.sql import func
+from urllib.parse import quote_plus
 from logging import getLogger
 
 from app.core.config import settings
@@ -53,6 +54,22 @@ class AuditMixin:
     is_active  = Column(Boolean, default=True,  nullable=False)
     is_deleted = Column(Boolean, default=False, nullable=False)
 
+
+def ensure_database_exists():
+    """Connect to MySQL server without database and create it if missing."""
+    try:
+        encoded_password = quote_plus(settings.MYSQL_PASSWORD)
+        server_url = f"mysql+pymysql://{settings.MYSQL_USER}:{encoded_password}@{settings.MYSQL_SERVER}:{settings.MYSQL_PORT}/"
+        
+        temp_engine = create_engine(server_url, connect_args=connect_args)
+        with temp_engine.connect() as conn:
+
+            conn.execute(text(f"CREATE DATABASE IF NOT EXISTS {settings.MYSQL_DB}"))
+        temp_engine.dispose()
+        logger.info(f"Ensured database '{settings.MYSQL_DB}' exists.")
+    except Exception as e:
+        logger.error(f"Failed to ensure database exists: {e}")
+        pass
 
 def get_sync_db() -> Generator[Session, None, None]:
     db = SessionLocal()

@@ -9,9 +9,9 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.core.config import settings
-from app.core.database import engine, Base
+from app.core.database import engine, Base, ensure_database_exists
 from app.api.router import api_router
-import seed
+from app.core.seeding import seed_all
 
 from app.utils.exceptions import add_exception_handlers
 from app.models.masters import UserStatus, Skill, Status, Priority
@@ -39,10 +39,15 @@ IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 1. Ensure the database itself exists
+    ensure_database_exists()
+    
+    # 2. Always ensure tables are created
     Base.metadata.create_all(bind=engine)
     
+    # 3. Automatically seed the database if needed
     try:
-        seed.seed_all(reset=False)
+        seed_all(reset=False)
     except Exception as e:
         print(f"Auto-seeding failed: {e}")
         
