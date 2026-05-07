@@ -49,5 +49,9 @@ def add_exception_handlers(app: FastAPI):
         
         return JSONResponse(
             status_code=500,
-            content={"detail": "An unexpected error occurred. Please contact support if the issue persists."}
+            content={
+                "detail": "An unexpected error occurred.",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc)
+            }
         )

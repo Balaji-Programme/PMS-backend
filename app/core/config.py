@@ -1,3 +1,4 @@
+import os
 import logging
 from typing import Optional, Union, List, Any
 from pydantic import Field, field_validator
@@ -77,7 +78,7 @@ class Settings(BaseSettings):
     PROXY_TRUSTED_HOSTS: Union[list[str], str] = Field(default="127.0.0.1")
 
     GZIP_MINIMUM_SIZE: int = 1024
-    APP_PORT: int = 8000
+    APP_PORT: int = int(os.getenv("PORT", 8000))
 
     MS_LOGIN_BASE_URL: str = "https://login.microsoftonline.com"
     MS_GRAPH_BASE_URL: str = "https://graph.microsoft.com"
