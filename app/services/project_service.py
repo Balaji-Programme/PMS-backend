@@ -30,6 +30,8 @@ def _project_query(extra_options=()):
             selectinload(Project.delivery_head).selectinload(User.role),
             selectinload(Project.source_template),
             selectinload(Project.team_members).selectinload(ProjectMember.user).selectinload(User.role),
+            selectinload(Project.status_master),
+            selectinload(Project.priority_master),
             *extra_options,
         )
     )
@@ -129,9 +131,27 @@ def get_projects(
     is_archived: Optional[bool] = None,
     is_template: Optional[bool] = None,
     include_all: bool = False,
+    search: Optional[str] = None,
     current_user=None,
-) -> List[Project]:
+) -> dict:
     stmt = _project_query().where(Project.is_deleted == False)
+
+    if search:
+        q = f"%{search}%"
+        stmt = stmt.where(
+            or_(
+                Project.project_name.ilike(q),
+                Project.public_id.ilike(q),
+                Project.project_id_sync.ilike(q),
+                Project.customer_name.ilike(q),
+                Project.client_name.ilike(q),
+            )
+        )
+
+    if status_ids:
+        stmt = stmt.where(Project.status_id.in_(status_ids))
+    if priority_ids:
+        stmt = stmt.where(Project.priority_id.in_(priority_ids))
 
 
     if current_user is not None:
@@ -151,10 +171,13 @@ def get_projects(
             .where(User.email.in_(manager_emails))
         )
 
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = db.execute(count_stmt).scalar() or 0
+    
     result = db.execute(stmt.offset(skip).limit(limit))
     projects = list(result.scalars().unique().all())
     _batch_enrich_projects(db, projects)
-    return projects
+    return {"total": total, "items": projects}
 
 
 def search_projects(
