@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, case
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 
@@ -58,7 +58,7 @@ def _batch_enrich_milestones(db: Session, milestones: List[Milestone]) -> None:
         select(
             Task.milestone_id, 
             func.count(Task.id),
-            func.sum(func.case((Task.completion_percentage == 100, 1), else_=0))
+            func.sum(case((Task.completion_percentage == 100, 1), else_=0))
         ).where(Task.milestone_id.in_(milestone_ids), Task.is_deleted == False).group_by(Task.milestone_id)
     ).all()
 
